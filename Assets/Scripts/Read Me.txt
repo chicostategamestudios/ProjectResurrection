@@ -1,0 +1,27 @@
+I categorized the code like this
+
+//MOVEMENT
+//---------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+there are several same categories and they all work together. 
+
+
+I. RING MANAGER
+
+	1. How to Use
+		a. Creating more rings
+		Make sure that the rings in the hierarchy are ordered just as 
+		they are ordered in the Unity world.
+		b. Moving rings
+		A ring is a combination of two GAMEOBJECTs, one is purely the mesh and
+		the other is just a trigger. Make sure to move the parent and not the child.
+
+	2. Summary
+	
+	This script stores all existing rings into a list. 
+	It renames the list names, and taleports the player
+	through the names (used in PlayerGamepad.cs) and indexes
+
+II. CAMERA
+
+	
