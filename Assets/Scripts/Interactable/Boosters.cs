@@ -17,7 +17,7 @@ public class Boosters : MonoBehaviour {
 				force = 19.5f;
 			}
 		}
-		force *= 10000000;
+		force *= 10000;
 	}
 		
 }

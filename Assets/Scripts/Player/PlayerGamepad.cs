@@ -6,11 +6,6 @@ using System.Collections.Generic;
 using UnityEngine;
 using System;
 
-public enum PlayerState
-{
-
-}
-
 public class PlayerGamepad : MonoBehaviour
 {
 
@@ -23,6 +18,7 @@ public class PlayerGamepad : MonoBehaviour
     public float deacceleration;
     private float current_speed, speed_smooth_velocity, speed_smooth_time, current_speed_multiplier;
     private float camera_timer;
+    private bool disable_left_joystick;
 
     //PLAYER
     private float player_direction;
@@ -31,10 +27,11 @@ public class PlayerGamepad : MonoBehaviour
     private Vector3 player_movement_direction;
 
     //RAIL
-    [Tooltip("Value between 10 and 50 for jump_force.")]
+    [Tooltip("Value between .01 and 4 for rail speed.")]
     public float rail_boost_speed;
     private bool on_rail;
     private Vector3 rail_direction;
+    GameObject rail_first_pos, rail_second_pos;
 
     //JUMP
     public int jump_counter, jump_limit;
@@ -165,6 +162,8 @@ public class PlayerGamepad : MonoBehaviour
         {
             dash_trail_renderer = GetComponent<TrailRenderer>();
         }
+
+        disable_left_joystick = false;
     }
 
     void Start()
@@ -228,7 +227,7 @@ public class PlayerGamepad : MonoBehaviour
         //speed of player on rail
         if (rail_boost_speed == 0)
         {
-            rail_boost_speed = 50f;
+            rail_boost_speed = 3f;
         }
 
         //Used for checking left joystick rotation rate...
@@ -241,12 +240,13 @@ public class PlayerGamepad : MonoBehaviour
 
         if (gamepad_allowed)
         {
-            //JOYSTICK INPUTS
-            //Track Vector3 pos of left and right joystick.
-            input_joystick_right = new Vector3(Input.GetAxisRaw("RightJoystickY"), Input.GetAxisRaw("RightJoystickX"), 0);
-            input_joystick_left = new Vector3(Input.GetAxisRaw("LeftJoystickX"), 0, Input.GetAxisRaw("LeftJoystickY"));
-
-            
+            if (!disable_left_joystick)
+            {
+                //JOYSTICK INPUTS
+                //Track Vector3 pos of left and right joystick.
+                input_joystick_right = new Vector3(Input.GetAxisRaw("RightJoystickY"), Input.GetAxisRaw("RightJoystickX"), 0);
+                input_joystick_left = new Vector3(Input.GetAxisRaw("LeftJoystickX"), 0, Input.GetAxisRaw("LeftJoystickY"));
+            }
 
 
             /////////////////////////////////////////////////////////////////////////////
@@ -347,24 +347,21 @@ public class PlayerGamepad : MonoBehaviour
                     current_speed = 4.0f;
                 }
 
-                if (in_ring)
-                {
-                    //align the player forward direction to the ring forward direction
-                    player_movement_direction = ring_direction;
-                }
-                else
-                {
-                    player_movement_direction = transform.forward;
-                }
+                player_movement_direction = transform.forward;
+                
 
                 //check if theres anything infront of the player
                 if (Physics.Raycast(transform.position, forward, out hit, 1))
                 {
                     //ignore the trigger collision box of gameobjects with tag launchring
-                    if (hit.collider.tag != "Launch Ring")
+                    if (hit.collider.tag != "Launch Ring" && hit.collider.tag != "Wall")
                     {
                         //if something is infront of the player within a distance, stop the player
                         current_speed = 0;
+                    }
+                    if(hit.collider.tag == "Wall")
+                    {
+                        on_wall = true;
                     }
                 }
                 else
@@ -380,11 +377,8 @@ public class PlayerGamepad : MonoBehaviour
 
             if (on_wall)
             {
-                if (player_rigidbody.velocity.magnitude < 60)
-                {
-                    player_rigidbody.AddForce(wall_direction * 1000 * 20 * Time.fixedDeltaTime, ForceMode.Impulse);
-                    player_rigidbody.AddForce(Vector3.up * 1000 * 10 * Time.fixedDeltaTime, ForceMode.Impulse);
-                }
+               // transform.position = new Vector3(transform.position.x, hit.collider.transform.position.y, transform.position.z);
+
 
             }
 
@@ -404,13 +398,7 @@ public class PlayerGamepad : MonoBehaviour
                     camera_anchor.transform.eulerAngles += target_rotation;
                 }
             }
-            //THIS IS NOT USED - But its for rotating the player based on where the camera is facing
-            //if (Input.GetAxisRaw("LeftJoystickX") != 0 || Input.GetAxisRaw("LeftJoystickY") != 0)
-            //{
-            //    Vector3 target_rotation = new Vector3(0, camera_anchor.transform.eulerAngles.y, 0);
-            //    transform.rotation = Quaternion.Slerp (transform.rotation, Quaternion.Euler (target_rotation), 10 * Time.deltaTime); //Player rotate to camera's transform.forward
-            //}
-
+    
             /////////////////////////////////////////////////////////////////////////////
             //	JUMP                         
             /////////////////////////////////////////////////////////////////////////////
@@ -422,6 +410,11 @@ public class PlayerGamepad : MonoBehaviour
                 jump = true;
                 falling = true;
                 jump_counter++;
+                ToggleOnRail();
+                if (on_wall)
+                {
+                    StartCoroutine(MoveFor(1.0F));
+                }
             }
 
             /////////////////////////////////////////////////////////////////////////////
@@ -430,9 +423,20 @@ public class PlayerGamepad : MonoBehaviour
 
             if (on_rail)
             {
-                transform.position += rail_direction * rail_boost_speed * Time.deltaTime;
-                Vector3 temp = new Vector3(rail_direction.x, transform.position.y, transform.position.z);
-                transform.position = Vector3.Lerp(transform.position, temp, 20f * Time.deltaTime);
+                disable_left_joystick = true;
+                transform.position = Vector3.MoveTowards(transform.position, rail_second_pos.transform.position, rail_boost_speed);
+                transform.position = new Vector3(transform.position.x, rail_first_pos.transform.position.y, transform.position.z);
+                float distance_from_end_rail = Vector3.Distance(transform.position, rail_second_pos.transform.position);
+                if (distance_from_end_rail < 5.0f)
+                {
+                    on_rail = false;
+                    StartCoroutine(MoveFor(1.0f));
+                    //if get off get boosted towards rail_first_forward instead of player's direction FIX!!!!!!!!!!!!!!!!!
+                }
+            }
+            else
+            {
+                disable_left_joystick = false;
             }
 
             //Activate dash
@@ -492,8 +496,9 @@ public class PlayerGamepad : MonoBehaviour
         dash_timer = 0;
         dash_trail_renderer.enabled = false;
     }
+    
 
-    //This will move the player for a little bit forward after the player has exited the rings or rails
+        //This will move the player for a little bit forward after the player has exited the rings or rails
     IEnumerator MoveFor(float seconds)
     {
         current_speed = Mathf.SmoothDamp(current_speed, current_speed_multiplier * 50, ref speed_smooth_velocity, 0.5f);
@@ -501,6 +506,12 @@ public class PlayerGamepad : MonoBehaviour
         yield return new WaitForSeconds(0.5f);
         in_ring = false;
     }
+
+    void ToggleOnRail()
+    {
+        on_rail = false;
+    }
+
 
     /////////////////////////////////////////////////////////////////////////////
     //	COLLIDERS               
@@ -561,13 +572,23 @@ public class PlayerGamepad : MonoBehaviour
         }
     }
 
+
     void OnTriggerEnter(Collider col)
     {
 
+       
         if (col.gameObject.tag == "Rail")
         {
             on_rail = true;
-            rail_direction = col.gameObject.transform.forward;
+            rail_first_pos = col.gameObject;
+            rail_second_pos = col.gameObject.transform.parent.GetChild(0).transform.gameObject;
+        }
+
+
+        if (col.gameObject.name == rail_second_pos.name)
+        {
+            on_rail = false;
+            StartCoroutine(MoveFor(1.0f));
         }
 
         if (col.gameObject.tag == "Launch Ring")
@@ -587,15 +608,6 @@ public class PlayerGamepad : MonoBehaviour
             //the rings are automatically named in RingManager.cs
             string last_character = col_name.Substring(col_name.Length - 1);
             ring_manager_script.counter = Convert.ToInt32(last_character);
-
-            //if(col.gameObject.transform.parent.name == "Rail Section")
-            //{
-            //    gamepad_allowed = true;
-            //}
-            //else
-            //{
-            //    gamepad_allowed = false;
-            //}
 
             if (ring_manager_script.counter < ring_manager_script.child_count - 1)
             {
@@ -626,13 +638,6 @@ public class PlayerGamepad : MonoBehaviour
 
     }
 
-    void OnTriggerExit(Collider other)
-    {
-        if (other.gameObject.tag == "Rail")
-        {
-            on_rail = false;
-        }
-    }
 
 }
 
