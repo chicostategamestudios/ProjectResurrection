@@ -40,6 +40,7 @@ public class PlayerGamepad : MonoBehaviour
     private bool falling;
     private bool jump;
     private float jump_timer;
+    private bool can_jump;
 
     //CAMERA
     private float camera_rotation_speed, turn_smooth_velocity, turn_smooth_time;
@@ -82,7 +83,7 @@ public class PlayerGamepad : MonoBehaviour
 
     //Casts a ray infront, to stop player running into wall
     private Ray ray;
-    private RaycastHit hit;
+    private RaycastHit hit, hit_down;
 
     //DASH
     [Tooltip("How long will the dash last. Recommend values under 5 seconds")]
@@ -371,14 +372,19 @@ public class PlayerGamepad : MonoBehaviour
                 }
             }
 
-            /////////////////////////////////////////////////////////////////////////////
-            //	WALL                        
+            
+
+             /////////////////////////////////////////////////////////////////////////////
+             //	WALL                        
             /////////////////////////////////////////////////////////////////////////////
 
             if (on_wall)
             {
-               // transform.position = new Vector3(transform.position.x, hit.collider.transform.position.y, transform.position.z);
-
+                // transform.position = new Vector3(transform.position.x, hit.collider.transform.position.y, transform.position.z);
+                //transform.position += wall_direction * 50f * Time.deltaTime;
+                player_rigidbody.AddForce(wall_direction * 5000000f * 10 * Time.deltaTime);
+                player_rigidbody.AddForce(Vector3.up * 2000000f * 10 * Time.deltaTime);
+                print("on wall");
 
             }
 
@@ -398,24 +404,33 @@ public class PlayerGamepad : MonoBehaviour
                     camera_anchor.transform.eulerAngles += target_rotation;
                 }
             }
-    
+
             /////////////////////////////////////////////////////////////////////////////
             //	JUMP                         
             /////////////////////////////////////////////////////////////////////////////
 
+
+            //if there is something below the player, the player can jump
+         
             if ((Input.GetButton("Controller_A")) && jump_counter < jump_limit)
             {
-                player_rigidbody.AddForce(Vector3.up * jump_force * Time.fixedDeltaTime, ForceMode.Impulse);
-                jump_timer = 0f;
-                jump = true;
-                falling = true;
-                jump_counter++;
-                ToggleOnRail();
-                if (on_wall)
+                if (Physics.Raycast(transform.position, -transform.up, out hit_down, 1))
                 {
-                    StartCoroutine(MoveFor(1.0F));
+                    player_rigidbody.AddForce(Vector3.up * jump_force * Time.fixedDeltaTime, ForceMode.Impulse);
+                    jump_timer = 0f;
+                    jump = true;
+                    falling = true;
+                    jump_counter++;
+                    ToggleOnRail();
+                    if (on_wall)
+                    {
+                        StartCoroutine(MoveFor(1.0F));
+                    }
+
                 }
             }
+         
+           
 
             /////////////////////////////////////////////////////////////////////////////
             //	RAIL                           
