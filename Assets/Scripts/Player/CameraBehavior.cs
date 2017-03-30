@@ -13,38 +13,38 @@ using System.Collections.Generic;
 using UnityEngine;
 
 public class CameraBehavior : MonoBehaviour {
-		private bool In_Combat_Currently = false;		//This is a bool that tracks if the player is in combat or not
+	private bool In_Combat_Currently = false;				//This is a bool that tracks if the player is in combat or not
 
-		private GameObject Camera_Combat_Handler_Holder;		//Holds a game object for referencing the center point of the combat camera
-		private GameObject player;					//Holds a game object for referencing the "player"
-		private GameObject targeted_enemy;						//Holds a game object for referencing the "enemy"
-		public Vector3 camera_movement_direction;
+	private GameObject Camera_Combat_Handler_Holder;		//Holds a game object for referencing the center point of the combat camera
+	private GameObject player;								//Holds a game object for referencing the "player"
+	private GameObject targeted_enemy;						//Holds a game object for referencing the "enemy"
 
-		/* PROGRAMMER NOTE: This should be changed to PUBLIC while testing. It should be set to PRIVATE if testing is comeplete. */
-		[Tooltip("IF YOU ARE SEEING THIS, THEN A PROGRAMMER DID NO FOLLOW DIRECTIONS")]
-		public  bool Combat_Camera_Toggle = true;				/* TESTING ONLY */
-		//	private bool Combat_Camera_Toggle = true;				//Boolean toggle for if the "camera" is in default mode, or combat mode
-		/* This starts as true, but in Awake() will be set to false (for testing reasons) */
+	//	public Vector3 camera_movement_direction;			/* NOT USED: REMOVE? */
 
-		//Inspector Cameras
-		//public Camera Camera_Normal;			//This is an inspector element that will hold the default (non-combat) camera
-		//public Camera Camera_Combat;			//This is an inspector element that will hold the combat camera
-		//public Camera Camera_Cinematic;		//This is an inspector element that will hold the cinematic camera
+	/* PROGRAMMER NOTE: This should be changed to PUBLIC while testing. It should be set to PRIVATE if testing is comeplete. */
+	[Tooltip("IF YOU ARE SEEING THIS, THEN A PROGRAMMER DID NO FOLLOW DIRECTIONS")]
+	//public  bool Combat_Camera_Toggle = true;					/* TESTING ONLY */
+	private bool Combat_Camera_Toggle = true;				//Boolean toggle for if the "camera" is in default mode, or combat mode
+	/* This starts as true, but in Awake() will be set to false (for testing reasons) */
 
+	//Inspector Cameras						/* These would be used for camera switching. For example, switching between normal and combat cameras, or to a cinematic camera */
+	//public Camera Camera_Normal;			//This is an inspector element that will hold the default (non-combat) camera
+	//public Camera Camera_Combat;			//This is an inspector element that will hold the combat camera
+	//public Camera Camera_Cinematic;		//This is an inspector element that will hold the cinematic camera
 
 	private float temp_axis;
 	private GameObject enemy;
 
 	// Use this for initialization
 	void Awake () {
-			player = GameObject.Find ("Player");		//Assigns the "player" GameObject to an object in the hierarchy named "Player"
-			targeted_enemy = GameObject.Find ("Enemy");			//Assigns the "targeted_enemy" GameObject to an object in the hierarchy named "Enemy"
+		player = GameObject.Find ("Player");				//Assigns the "player" GameObject to an object in the hierarchy named "Player"
+		targeted_enemy = GameObject.Find ("Enemy");			//Assigns the "targeted_enemy" GameObject to an object in the hierarchy named "Enemy"
 
-			Camera_Combat_Handler_Holder = GameObject.Find ("Camera_Combat_Handler");
-
-			Combat_Camera_Toggle = false;
-			/* PROGRAMMER NOTE: This is primarily for testing purposes. 
-		    * The combat camera turns on by default, and then this line turns it off to make sure they both work */
+		Camera_Combat_Handler_Holder = GameObject.Find ("Camera_Combat_Handler");
+		Combat_Camera_Toggle = false;
+		/* PROGRAMMER NOTE: This is primarily for testing purposes.
+		* The combat camera turns on by default, and then this line turns it off to make sure they both work
+		*/
 	}
 
 	void Start () {
@@ -55,6 +55,7 @@ public class CameraBehavior : MonoBehaviour {
 	void Update () {
 		transform.position = player.transform.position;		//This update's the current tranform.position of Camera Anchor to the player's position
 		Camera_Updater ();			//This is a function call that will decide if lock-on is toggled on/off & combat is engaged/disengaged
+
 		/* Did the player click Right Stick down? */
 		if (Input.GetButtonDown ("Controller_Right_Stick_Click") )
 		{
@@ -88,7 +89,7 @@ public class CameraBehavior : MonoBehaviour {
 		else if (Combat_Camera_Toggle == true) {
 			In_Combat_Currently = true;
 
-			transform.position = player.transform.position;		//This update's the current tranform.position of Camera Anchor to the player's position
+			transform.position = player.transform.position;				//This update's the current tranform.position of Camera Anchor to the player's position
 			//We need a bool loop to turn on/off this when lock on in turned on/off
 			transform.LookAt (enemy.transform);
 			//END

@@ -26,7 +26,8 @@ public class BasicAI : MonoBehaviour
         walking,
 		dodging,
         attack_1,
-        attack_2
+        attack_2,
+        attack_3
     } // states of the AI.
 
 	public IEnumerator Dodge()
@@ -43,8 +44,20 @@ public class BasicAI : MonoBehaviour
     public IEnumerator Attack_1()
     {
         Debug.Log("performing attack 1 now");
+
+        
+
 		yield return new WaitForSeconds(performing_time);
-		Debug.Log("done with attack 1");
+
+        RaycastHit hit;
+        Vector3 position = this.transform.position;
+
+        if (Physics.SphereCast(position, position.y, Vector3.back, out hit, 5f))
+        {
+            Debug.Log("<color=red>Attack 1 hit the player</color>");
+        }
+
+        Debug.Log("done with attack 1");
 		yield return new WaitForSeconds(cooldown_action);
 		performing_action = false;  //the ai is done with the action
     }
@@ -57,7 +70,15 @@ public class BasicAI : MonoBehaviour
 		yield return new WaitForSeconds(cooldown_action);
 		performing_action = false;  //the ai is done with the action
     }
-		
+    public IEnumerator Attack_3()
+    {
+        Debug.Log("performing attack 2 now");
+        yield return new WaitForSeconds(performing_time);
+        Debug.Log("done with attack 2");
+        yield return new WaitForSeconds(cooldown_action);
+        performing_action = false;  //the ai is done with the action
+    }
+
 
     void Update () 
 	{
@@ -74,7 +95,7 @@ public class BasicAI : MonoBehaviour
 														  //and then perform the action.
 		{
 			performing_action = true;  //the ai is now doing an action
-			ai_state current_state = (ai_state)Random.Range(2, 5);
+			ai_state current_state = (ai_state)Random.Range(2, 6);
 			switch (current_state) 
 			{
 			case ai_state.dodging:
@@ -84,9 +105,12 @@ public class BasicAI : MonoBehaviour
 				StartCoroutine ("Attack_1");
 				break;
 			case ai_state.attack_2:
-				StartCoroutine ("Attack_2");
+				StartCoroutine ("Attack_1");
 				break;
-			}// at the end of each coroutines, it will set performing_action back to false to allow for a loop if they are within range.
+            case ai_state.attack_3:
+                StartCoroutine("Attack_1");
+                break;
+            }// at the end of each coroutines, it will set performing_action back to false to allow for a loop if they are within range.
 		}
 			
 

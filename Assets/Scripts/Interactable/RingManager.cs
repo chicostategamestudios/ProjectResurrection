@@ -32,7 +32,7 @@ public class RingManager : MonoBehaviour {
 		engage_transit = false;
 	}
 
-	void Update(){
+	void FixedUpdate(){
 		if (engage_transit) {
             player.GetComponent<Rigidbody>().useGravity = false;
             player.transform.position = Vector3.MoveTowards(player.transform.position, list_children[counter].position, Time.deltaTime * 60);

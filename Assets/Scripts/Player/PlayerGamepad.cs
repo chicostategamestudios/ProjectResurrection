@@ -29,7 +29,7 @@ public class PlayerGamepad : MonoBehaviour
     //RAIL
     [Tooltip("Value between .01 and 4 for rail speed.")]
     public float rail_boost_speed;
-    private bool on_rail;
+    private bool on_rail, exiting_rail;
     private Vector3 rail_direction;
     GameObject rail_first_pos, rail_second_pos;
 
@@ -156,7 +156,7 @@ public class PlayerGamepad : MonoBehaviour
         }
         if (can_dash == false)
         {
-            can_dash = true;
+            can_dash = false;
         }
 
         if (dash_trail_renderer == false)
@@ -281,6 +281,14 @@ public class PlayerGamepad : MonoBehaviour
             player_direction = Mathf.Atan2(input_direction.x, input_direction.z) * Mathf.Rad2Deg; //calculate the direction of the joystick, doing this by finding the theta angle, we are given the x value from the input_joystick_left.x and y value from the input_joystick_left.right
 
         }
+
+		if (jump_counter > 0) {
+			can_dash = true;
+		} else {
+			can_dash = false;
+		}
+
+
     }
 
     void FixedUpdate()
@@ -336,7 +344,7 @@ public class PlayerGamepad : MonoBehaviour
                 //used to smoothly increase and decrease the velocity of the player, its a value...
                 current_speed = Mathf.SmoothDamp(current_speed, input_joystick_left.sqrMagnitude * current_speed_multiplier, ref speed_smooth_velocity, speed);
                 //...taking that value and utilizing it here
-                transform.position += transform.forward * current_speed * Time.deltaTime;
+				transform.position += player_movement_direction * current_speed * Time.deltaTime;
             }
 
             if (input_joystick_left != Vector3.zero)
@@ -348,7 +356,6 @@ public class PlayerGamepad : MonoBehaviour
                     current_speed = 4.0f;
                 }
 
-                player_movement_direction = transform.forward;
                 
 
                 //check if theres anything infront of the player
@@ -368,6 +375,12 @@ public class PlayerGamepad : MonoBehaviour
                 else
                 {
                     //the player can still move
+					if (exiting_rail) {
+						print ("exiting rail");
+						player_movement_direction = rail_second_pos.transform.forward;
+					} else {
+						player_movement_direction = transform.forward;
+					}
                     transform.position += player_movement_direction * current_speed * Time.deltaTime;
                 }
             }
@@ -378,10 +391,8 @@ public class PlayerGamepad : MonoBehaviour
              //	WALL                        
             /////////////////////////////////////////////////////////////////////////////
 
-            if (on_wall)
+			if (on_wall && player_rigidbody.velocity.magnitude < 170f)
             {
-                // transform.position = new Vector3(transform.position.x, hit.collider.transform.position.y, transform.position.z);
-                //transform.position += wall_direction * 50f * Time.deltaTime;
                 player_rigidbody.AddForce(wall_direction * 5000000f * 10 * Time.deltaTime);
                 player_rigidbody.AddForce(Vector3.up * 2000000f * 10 * Time.deltaTime);
                 print("on wall");
@@ -518,8 +529,11 @@ public class PlayerGamepad : MonoBehaviour
     {
         current_speed = Mathf.SmoothDamp(current_speed, current_speed_multiplier * 50, ref speed_smooth_velocity, 0.5f);
         gamepad_allowed = true;
+		exiting_rail = true;
         yield return new WaitForSeconds(0.5f);
         in_ring = false;
+		exiting_rail = false;
+
     }
 
     void ToggleOnRail()
@@ -568,10 +582,10 @@ public class PlayerGamepad : MonoBehaviour
         {
             transform.position = GameObject.Find("Spawn Zone").transform.position;
         }
-        //used to smoothly increase and decrease the velocity of the player, its a value...
-        current_speed = Mathf.SmoothDamp(current_speed, input_joystick_left.sqrMagnitude * current_speed_multiplier, ref speed_smooth_velocity, speed);
-        //...taking that value and utilizing it here
-        transform.position += transform.forward * current_speed * Time.deltaTime;
+
+//        //used to smoothly increase and decrease the velocity of the player, its a value...
+//        current_speed = Mathf.SmoothDamp(current_speed, input_joystick_left.sqrMagnitude * current_speed_multiplier, ref speed_smooth_velocity, speed);
+//        //...taking that value and utilizing it here
 
     }
 
@@ -590,20 +604,18 @@ public class PlayerGamepad : MonoBehaviour
 
     void OnTriggerEnter(Collider col)
     {
-
        
         if (col.gameObject.tag == "Rail")
         {
             on_rail = true;
             rail_first_pos = col.gameObject;
             rail_second_pos = col.gameObject.transform.parent.GetChild(0).transform.gameObject;
-        }
+			if (col.gameObject.name == rail_second_pos.name)
+			{
+				on_rail = false;
+				StartCoroutine(MoveFor(1.0f));
+			}
 
-
-        if (col.gameObject.name == rail_second_pos.name)
-        {
-            on_rail = false;
-            StartCoroutine(MoveFor(1.0f));
         }
 
         if (col.gameObject.tag == "Launch Ring")
