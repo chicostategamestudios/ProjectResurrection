@@ -1,10 +1,11 @@
-﻿//Original Author: Alexander Stamatis || Last Edited: Alexander Stamatis | Modified on March 9, 2017
+﻿//Original Author: Alexander Stamatis || Last Edited: Alexander Stamatis | Modified on April 4, 2017
 //This script deals with player movement, camera, and some player collision and trigger interactions in the runtime world
 
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using System;
+using UnityEngine.UI;
 
 public class PlayerGamepad : MonoBehaviour
 {
@@ -25,6 +26,7 @@ public class PlayerGamepad : MonoBehaviour
     private float player_rotation_speed;
     private Rigidbody player_rigidbody;
     private Vector3 player_movement_direction;
+    private bool on_air;
 
     //RAIL
     [Tooltip("Value between .01 and 4 for rail speed.")]
@@ -32,6 +34,8 @@ public class PlayerGamepad : MonoBehaviour
     private bool on_rail, exiting_rail;
     private Vector3 rail_direction;
     GameObject rail_first_pos, rail_second_pos;
+    private bool rail_going_forward;
+    private bool player_direction_forward;
 
     //JUMP
     public int jump_counter, jump_limit;
@@ -48,6 +52,11 @@ public class PlayerGamepad : MonoBehaviour
     private bool gamepad_allowed;
     private GameObject camera_anchor; //grabbing this from the hierarchy to override camera rotation
     public bool use_camera_type_1;
+
+
+
+    //CHECKPOINT SYSTEM
+    public Transform[] checkpoints;
 
     //GAMEPAD
     private Vector3 input_joystick_left, input_joystick_right, input_direction, last_direction;
@@ -83,7 +92,7 @@ public class PlayerGamepad : MonoBehaviour
 
     //Casts a ray infront, to stop player running into wall
     private Ray ray;
-    private RaycastHit hit, hit_down;
+    private RaycastHit hit, hit_down, hit_down_2;
 
     //DASH
     [Tooltip("How long will the dash last. Recommend values under 5 seconds")]
@@ -101,6 +110,8 @@ public class PlayerGamepad : MonoBehaviour
 
     void Awake()
     {
+        can_jump = true;
+
         if(use_camera_type_1 == false)
         {
             use_camera_type_1 = true;
@@ -165,6 +176,26 @@ public class PlayerGamepad : MonoBehaviour
         }
 
         disable_left_joystick = false;
+
+
+        //Checkpoints
+        //Open up 3 slots in checkpoint
+        checkpoints = new Transform[4];
+        //for each checkpoint index check if there is something in it
+        //else remind in the console that all of those indexes are not assigned
+        for(int i = 1; i < 5; i++)
+        {
+            if (checkpoints[i - 1] == null)
+            {
+                checkpoints[i - 1] = GameObject.Find("checkpoint_" + i).transform;
+            }
+            else
+            {
+                Debug.LogError("please assign gameobject to " + checkpoints[i - 1]);
+            }
+        }
+
+      
     }
 
     void Start()
@@ -207,6 +238,7 @@ public class PlayerGamepad : MonoBehaviour
             speed = 0.5f;
         }
 
+        //change this to control player desired speed
         if (current_speed_multiplier == 0)
         {
             current_speed_multiplier = 48;
@@ -299,6 +331,18 @@ public class PlayerGamepad : MonoBehaviour
         if (gamepad_allowed)
         {
 
+            //IF ON AIR
+            if (Physics.Raycast(transform.position, -transform.up, out hit_down_2, 1.5f))
+            {
+                on_air = false;
+            }
+            else
+            {
+                on_air = true;
+            }
+
+
+
             //slow down rotation of player while on air
             if (falling)
             {
@@ -334,69 +378,102 @@ public class PlayerGamepad : MonoBehaviour
                 player_direction = Mathf.Atan2(input_direction.x, input_direction.z) * Mathf.Rad2Deg;
                 //slowly rotate from the initial rotation to the player rotation, adding camera_anchor.eulerAngles to make it so the axis is based of the camera rotation
                 transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.Euler(0, player_direction + camera_anchor.transform.eulerAngles.y, 0), player_rotation_speed * Time.deltaTime);
-                speed = acceleration;
+                if (!on_air)
+                {
+                    speed = acceleration;
+                }
             }
 
             if (input_direction == Vector3.zero)
             {
-                //change value of speed (used to control player movement) and slow it down
-                speed = deacceleration;
-                //used to smoothly increase and decrease the velocity of the player, its a value...
-                current_speed = Mathf.SmoothDamp(current_speed, input_joystick_left.sqrMagnitude * current_speed_multiplier, ref speed_smooth_velocity, speed);
+                if (!on_air)
+                {
+                    //change value of speed (used to control player movement) and slow it down
+                    speed = deacceleration;
+                }
+                   
                 //...taking that value and utilizing it here
-				transform.position += player_movement_direction * current_speed * Time.deltaTime;
+                transform.position += player_movement_direction * current_speed * Time.deltaTime;
             }
 
             if (input_joystick_left != Vector3.zero)
             {
-                //used to smoothly increase and decrease the velocity of the player, its a value...
-                current_speed = Mathf.SmoothDamp(current_speed - ((delta / 1000) / 3.3f), input_joystick_left.sqrMagnitude * current_speed_multiplier, ref speed_smooth_velocity, speed);
-                if (current_speed < 4.0f)
-                {
-                    current_speed = 4.0f;
-                }
 
-                
-
+               
                 //check if theres anything infront of the player
-                if (Physics.Raycast(transform.position, forward, out hit, 1))
+                if (Physics.Raycast(transform.position, forward, out hit, 1.5f))
                 {
                     //ignore the trigger collision box of gameobjects with tag launchring
-                    if (hit.collider.tag != "Launch Ring" && hit.collider.tag != "Wall")
+                    if (hit.collider.tag == "Launch Ring" || hit.collider.tag == "Wall" || hit.collider.tag == "Rail" )
                     {
                         //if something is infront of the player within a distance, stop the player
-                        current_speed = 0;
+                        if (!exiting_rail)
+                        {
+                            player_movement_direction = transform.forward;
+                        }
+                        if (exiting_rail || on_rail)
+                        {
+                            current_speed = 20f;
+                        }
+
+                        transform.position += player_movement_direction * current_speed * Time.deltaTime;
                     }
-                    if(hit.collider.tag == "Wall")
+                    else
+                    {
+                        current_speed = 0;
+
+                    }
+
+                    if (hit.collider.tag == "Wall")
                     {
                         on_wall = true;
                     }
                 }
                 else
                 {
-                    //the player can still move
-					if (exiting_rail) {
-						print ("exiting rail");
-						player_movement_direction = rail_second_pos.transform.forward;
-					} else {
-						player_movement_direction = transform.forward;
-					}
+                    if (!exiting_rail)
+                    {
+                        player_movement_direction = transform.forward;
+                    }
                     transform.position += player_movement_direction * current_speed * Time.deltaTime;
                 }
+               
+
+                
             }
 
-            
+            if (on_air)
+            {
+                current_speed_multiplier = 33.0f;
+            }
+            else
+            {
+                current_speed_multiplier = 48.0f;
+            }
 
-             /////////////////////////////////////////////////////////////////////////////
-             //	WALL                        
+            //used to smoothly increase and decrease the velocity of the player, its a value...
+            current_speed = Mathf.SmoothDamp(current_speed - ((delta / 1000) / 3.3f), input_joystick_left.sqrMagnitude * current_speed_multiplier, ref speed_smooth_velocity, speed);
+             
+            //print(current_speed);
+
+
+
+            // if (GameObject.Find("top_right_text_1"))
+            // {
+                GameObject.Find("top_right_text_1").GetComponent<Text>().text = "speed: " + current_speed;
+            // }
+
+            //print(jump_counter);
+
+            /////////////////////////////////////////////////////////////////////////////
+            //	WALL                        
             /////////////////////////////////////////////////////////////////////////////
 
-			if (on_wall && player_rigidbody.velocity.magnitude < 170f)
+            if (on_wall && player_rigidbody.velocity.magnitude < 170f)
             {
-                player_rigidbody.AddForce(wall_direction * 5000000f * 10 * Time.deltaTime);
-                player_rigidbody.AddForce(Vector3.up * 2000000f * 10 * Time.deltaTime);
-                print("on wall");
-
+                //player_rigidbody.AddForce(wall_direction * 5000000f * 10 * Time.deltaTime);
+                // player_rigidbody.AddForce(Vector3.up * 2000000f * 10 * Time.deltaTime);
+                
             }
 
             /////////////////////////////////////////////////////////////////////////////
@@ -416,32 +493,56 @@ public class PlayerGamepad : MonoBehaviour
                 }
             }
 
+
+            /////////////////////////////////////////////////////////////////////////////
+            //	IF ON AIR                        
+            /////////////////////////////////////////////////////////////////////////////
+
+
+            
+
             /////////////////////////////////////////////////////////////////////////////
             //	JUMP                         
             /////////////////////////////////////////////////////////////////////////////
 
 
-            //if there is something below the player, the player can jump
-         
-            if ((Input.GetButton("Controller_A")) && jump_counter < jump_limit)
+            //check if button A is pressed and if the jump counter is less than 0 (increments by 1 if statement below executes)
+            if ((Input.GetButton("Controller_A")) && jump_counter < jump_limit && can_jump)
             {
-                if (Physics.Raycast(transform.position, -transform.up, out hit_down, 1))
+                //raycast checks if there is something below the player
+                //make sure that the ray goes father below the ground, if its a 1, it will cause issues like z-fighting (3d modeling), 
+                //it won't know if its touching or touching the ground because its doing both if the object is a scale of 1 and the distance of the ray is 1
+                if (Physics.Raycast(transform.position, -transform.up, out hit_down, 1.5f) || on_wall)
                 {
                     player_rigidbody.AddForce(Vector3.up * jump_force * Time.fixedDeltaTime, ForceMode.Impulse);
                     jump_timer = 0f;
                     jump = true;
                     falling = true;
                     jump_counter++;
+                    can_jump = false;
                     ToggleOnRail();
                     if (on_wall)
                     {
                         StartCoroutine(MoveFor(1.0F));
                     }
 
+                    
+
+                }
+
+                if (on_rail)
+                {
+                    on_rail = false;
+                    exiting_rail = false;
+                    StartCoroutine(MoveFor(1.0F));
                 }
             }
-         
-           
+
+            if ((Input.GetButtonUp("Controller_A")) && !can_jump)
+            {
+                can_jump = true;
+            }
+
 
             /////////////////////////////////////////////////////////////////////////////
             //	RAIL                           
@@ -456,6 +557,7 @@ public class PlayerGamepad : MonoBehaviour
                 if (distance_from_end_rail < 5.0f)
                 {
                     on_rail = false;
+                    exiting_rail = true;
                     StartCoroutine(MoveFor(1.0f));
                     //if get off get boosted towards rail_first_forward instead of player's direction FIX!!!!!!!!!!!!!!!!!
                 }
@@ -504,8 +606,33 @@ public class PlayerGamepad : MonoBehaviour
                     ResetDashValues();
                 }
             }
-        }
-    }
+
+            //CHECKPOINT
+            float d_pad_vertical = Input.GetAxis("DPadVertical");
+            float d_pad_horizontal = Input.GetAxis("DPadHorizontal");
+            if (d_pad_horizontal == 1)
+            {
+                transform.position = checkpoints[2].position;
+            }
+            if (d_pad_vertical == 1)
+            {
+                transform.position = checkpoints[1].position;
+            }
+            if (d_pad_vertical == -1)
+            {
+                transform.position = checkpoints[3].position;
+            }
+            if (d_pad_horizontal == -1)
+            {
+                transform.position = checkpoints[0].position;
+            }
+
+            //print(player_movement_direction);
+
+            
+
+        }//gamepad
+    }//fixedUpdate 
 
     //Used to capture last frames of the left joystick position, to compare it with the current one, this will calculate the delta (rate of change) of the left joystick
     void LastFrameLeftJoystick()
@@ -529,7 +656,19 @@ public class PlayerGamepad : MonoBehaviour
     {
         current_speed = Mathf.SmoothDamp(current_speed, current_speed_multiplier * 50, ref speed_smooth_velocity, 0.5f);
         gamepad_allowed = true;
-		exiting_rail = true;
+        if (exiting_rail)
+        {
+            if (rail_going_forward)
+            {
+                player_movement_direction = rail_second_pos.transform.forward;
+            }
+            if (!rail_going_forward)
+            {
+                player_movement_direction = -rail_second_pos.transform.forward;
+
+            }
+
+        }
         yield return new WaitForSeconds(0.5f);
         in_ring = false;
 		exiting_rail = false;
@@ -574,6 +713,7 @@ public class PlayerGamepad : MonoBehaviour
             on_wall = true;
             //get direction of wall
             wall_direction = col.gameObject.transform.forward;
+            
         }
 
         //DEATH ZONE
@@ -597,31 +737,88 @@ public class PlayerGamepad : MonoBehaviour
         }
         if (col.gameObject.tag == "Wall")
         {
-            on_wall = false;
+            StartCoroutine(TurnOffWall());
         }
     }
 
+    IEnumerator TurnOffWall()
+    {
+        yield return new WaitForSeconds(2.0f);
+        on_wall = false;
+
+    }
 
     void OnTriggerEnter(Collider col)
     {
-       
+
         if (col.gameObject.tag == "Rail")
         {
+
+            Vector3 diff_rotation = transform.rotation.eulerAngles - col.gameObject.transform.rotation.eulerAngles;
+            diff_rotation = new Vector3(Mathf.Abs(diff_rotation.x), Mathf.Abs(diff_rotation.y), Mathf.Abs(diff_rotation.z));
+
+            if (!exiting_rail && !on_rail)
+            {
+                if (col.gameObject.name == col.gameObject.transform.parent.GetChild(0).name)
+                {
+                    rail_first_pos = col.gameObject.transform.parent.GetChild(0).transform.gameObject;
+                    rail_second_pos = col.gameObject.transform.parent.GetChild(1).transform.gameObject;
+                    rail_going_forward = false;
+
+                }
+                if (col.gameObject.name == col.gameObject.transform.parent.GetChild(1).name)
+                {
+
+                    rail_first_pos = col.gameObject;
+                    rail_second_pos = col.gameObject.transform.parent.GetChild(0).transform.gameObject;
+                    rail_going_forward = true;
+                }
+                if(col.gameObject.name == col.gameObject.transform.parent.GetChild(2).name)
+                {
+                    print(diff_rotation);
+                    if(diff_rotation.y > 90 && diff_rotation.y < 270)
+                    {
+
+                        rail_first_pos = col.gameObject.transform.parent.GetChild(0).transform.gameObject;
+                        rail_second_pos = col.gameObject.transform.parent.GetChild(1).transform.gameObject;
+                        rail_going_forward = false;
+                        
+                    }
+                    else
+                    {
+                        rail_first_pos = col.gameObject;
+                        rail_second_pos = col.gameObject.transform.parent.GetChild(0).transform.gameObject;
+                        rail_going_forward = true;
+                    }
+
+                    if (col.gameObject.transform.rotation.eulerAngles.y + transform.rotation.y > col.gameObject.transform.rotation.eulerAngles.y || col.gameObject.transform.rotation.eulerAngles.y - transform.rotation.y < col.gameObject.transform.rotation.eulerAngles.y)
+                    {
+
+                      
+                    }
+                    else
+                    {
+                       
+
+                    }
+                }
+
+            }
             on_rail = true;
-            rail_first_pos = col.gameObject;
-            rail_second_pos = col.gameObject.transform.parent.GetChild(0).transform.gameObject;
+           
 			if (col.gameObject.name == rail_second_pos.name)
 			{
 				on_rail = false;
-				StartCoroutine(MoveFor(1.0f));
+                exiting_rail = true;
+                StartCoroutine(MoveFor(1.0f));
 			}
 
         }
 
         if (col.gameObject.tag == "Launch Ring")
         {
-
             in_ring = true;
+
             //Used to calculate direction
             Vector3 forward = transform.TransformDirection(Vector3.forward);
             //Used to compare directions
@@ -656,11 +853,14 @@ public class PlayerGamepad : MonoBehaviour
                 StartCoroutine(MoveFor(3.0f));
             }
 
+           
+
         }
 
         if (col.gameObject.tag == "Launch Pad")
         {
             GetComponent<Rigidbody>().AddForce(col.gameObject.transform.forward * 500000 * booster_force * Time.deltaTime, ForceMode.Impulse);
+            jump_counter++;
         }
 
     }

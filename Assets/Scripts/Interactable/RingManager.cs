@@ -35,7 +35,7 @@ public class RingManager : MonoBehaviour {
 	void FixedUpdate(){
 		if (engage_transit) {
             player.GetComponent<Rigidbody>().useGravity = false;
-            player.transform.position = Vector3.MoveTowards(player.transform.position, list_children[counter].position, Time.deltaTime * 60);
+            player.transform.position = Vector3.MoveTowards(player.transform.position, list_children[counter].position, Time.deltaTime * 60* 3);
                
         } else {
 			player.GetComponent<Rigidbody> ().useGravity = true;
