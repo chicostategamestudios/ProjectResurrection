@@ -20,6 +20,7 @@ public class PlayerGamepad : MonoBehaviour
     private float current_speed, speed_smooth_velocity, speed_smooth_time, current_speed_multiplier;
     private float camera_timer;
     private bool disable_left_joystick;
+    
 
     //PLAYER
     private float player_direction;
@@ -86,6 +87,9 @@ public class PlayerGamepad : MonoBehaviour
     //WALL
     private bool on_wall;
     private Vector3 wall_direction;
+    private GameObject wall_obj;
+    private Vector3 wall_target_pos;
+    private bool get_off_wall;
 
     //CHECK LAST FRAME DIRECTION
     private float last_second_player_direction;
@@ -104,6 +108,7 @@ public class PlayerGamepad : MonoBehaviour
     private float last_captured_y_pos; //Used to cancel out y movement
     private Vector3 last_captured_player_direction;//to commit a player to a direction, can't change directions when dashing
     private TrailRenderer dash_trail_renderer;
+    private int dash_counter;
 
     //BOOSTER
     public float booster_force;
@@ -271,6 +276,21 @@ public class PlayerGamepad : MonoBehaviour
     void Update()
     {
 
+
+        if (in_ring)
+        {
+            player_rigidbody.useGravity = false;
+            dash_trail_renderer.enabled = true;
+            player_rigidbody.velocity = new Vector3(player_rigidbody.velocity.x, 0, player_rigidbody.velocity.z);
+            
+        }
+
+        if (Input.GetButtonDown("Controller_Back"))
+        {
+            transform.position = GameObject.Find("Spawn Point").transform.position;
+        }
+
+
         if (gamepad_allowed)
         {
             if (!disable_left_joystick)
@@ -335,6 +355,11 @@ public class PlayerGamepad : MonoBehaviour
             if (Physics.Raycast(transform.position, -transform.up, out hit_down_2, 1.5f))
             {
                 on_air = false;
+                if(dash_counter == 1)
+                {
+                    can_dash = true;
+                    dash_counter = 0;
+                }
             }
             else
             {
@@ -453,14 +478,26 @@ public class PlayerGamepad : MonoBehaviour
 
             //used to smoothly increase and decrease the velocity of the player, its a value...
             current_speed = Mathf.SmoothDamp(current_speed - ((delta / 1000) / 3.3f), input_joystick_left.sqrMagnitude * current_speed_multiplier, ref speed_smooth_velocity, speed);
-             
+
+            //same thing as Mathf.Clamp() but this works better for some reason
+            if (current_speed > 48f)
+            {
+                current_speed = 48f;
+            } else if(current_speed < 0)
+            { 
+                current_speed = 0;
+            }
+
             //print(current_speed);
 
 
 
             // if (GameObject.Find("top_right_text_1"))
             // {
-                GameObject.Find("top_right_text_1").GetComponent<Text>().text = "speed: " + current_speed;
+            //current_speed = Mathf.Clamp((int)current_speed, 0, 50);
+            GameObject.Find("top_right_text_1").GetComponent<Text>().text = "SPEED: " + (int)current_speed + " MPH";
+            Color temp_color = new Color(0.05f * current_speed,.4f * current_speed,1 * -current_speed, 1);
+            GameObject.Find("top_right_text_1").GetComponent<Text>().color = temp_color;
             // }
 
             //print(jump_counter);
@@ -469,11 +506,45 @@ public class PlayerGamepad : MonoBehaviour
             //	WALL                        
             /////////////////////////////////////////////////////////////////////////////
 
+            RaycastHit hit_wall;
+
+            float distanceToObstacle = 0;
+
+            // Cast a sphere wrapping character controller 10 meters forward
+            // to see if it is about to hit anything.
+            if (Physics.SphereCast(transform.position, 5, transform.forward, out hit_wall, 1) && get_off_wall == false)
+            {
+                //print(hit_wall.transform.gameObject.name);
+                if(hit_wall.transform.tag == "Wall")
+                {
+                    player_rigidbody.useGravity = false;
+                    wall_target_pos = new Vector3(transform.position.x, hit_wall.transform.position.y, transform.position.z);
+                    transform.position = Vector3.Lerp(transform.position, wall_target_pos, 10.5f * Time.deltaTime);
+                    transform.position += wall_direction * 20 * Time.deltaTime;
+                }
+                else
+                {
+
+                }
+                Debug.DrawRay(transform.position, transform.forward, Color.green); // adapted from UA
+
+
+            }
+
+
+
             if (on_wall && player_rigidbody.velocity.magnitude < 170f)
             {
-                //player_rigidbody.AddForce(wall_direction * 5000000f * 10 * Time.deltaTime);
-                // player_rigidbody.AddForce(Vector3.up * 2000000f * 10 * Time.deltaTime);
+                //player_rigidbody.useGravity = false;
+                //if (wall_obj != null)
+                //{
+                //    wall_target_pos = new Vector3(transform.position.x, wall_obj.transform.position.y, transform.position.z);
+                //}
+                //transform.position = Vector3.Lerp(transform.position, wall_target_pos, 0.5f);
+
                 
+                // player_rigidbody.AddForce(Vector3.up * 2000000f * 10 * Time.deltaTime);
+
             }
 
             /////////////////////////////////////////////////////////////////////////////
@@ -536,6 +607,9 @@ public class PlayerGamepad : MonoBehaviour
                     exiting_rail = false;
                     StartCoroutine(MoveFor(1.0F));
                 }
+
+                StartCoroutine(GetOffWall());
+                on_wall = false;
             }
 
             if ((Input.GetButtonUp("Controller_A")) && !can_jump)
@@ -568,9 +642,10 @@ public class PlayerGamepad : MonoBehaviour
             }
 
             //Activate dash
-            if ((Input.GetButton("Controller_X")) && can_dash)
+            if ((Input.GetButton("Controller_X")) && can_dash && dash_counter < 1)
             {
                 dash = true;
+
                 //capturing the last forward direction of the player, to commit the player to dash only to that directions
                 //by doing so, the player can't change direction while dashing
                 last_captured_y_pos = transform.position.y;
@@ -580,18 +655,30 @@ public class PlayerGamepad : MonoBehaviour
                 if (Physics.Raycast(transform.position, temp_forward, 1))
                 {
                     can_dash = false;
+                    dash = false;
                 }
                 else
                 {
-                    can_dash = true;
+                    dash_counter = 1;
+
                 }
             }
 
             //While dash is activated, this is where the player actually dashes
-            if (dash)
+            if (dash )
             {
                 can_dash = false;
                 dash_timer += Time.fixedDeltaTime;
+                if (Physics.Raycast(transform.position, transform.forward, 1))
+                {
+                    can_dash = false;
+                    dash = false;
+                }
+                else
+                {
+                    dash_counter = 1;
+
+                }
                 if (dash_timer < dash_duration)
                 {
                     //enable the trail render
@@ -641,10 +728,22 @@ public class PlayerGamepad : MonoBehaviour
         last_second_player_direction = player_direction;
     }
 
+
+    IEnumerator GetOffWall()
+    {
+        get_off_wall = true;
+        yield return new WaitForSeconds(1.5f);
+        get_off_wall = false;
+    }
+
     //DASH
     //As the title of the function intends, to reset dash values for reuse of dash
     void ResetDashValues()
     {
+        if (dash_counter < 1)
+        {
+            can_dash = true;
+        }
         dash = false;
         dash_timer = 0;
         dash_trail_renderer.enabled = false;
@@ -713,7 +812,7 @@ public class PlayerGamepad : MonoBehaviour
             on_wall = true;
             //get direction of wall
             wall_direction = col.gameObject.transform.forward;
-            
+            jump_counter = 0;
         }
 
         //DEATH ZONE
@@ -743,13 +842,33 @@ public class PlayerGamepad : MonoBehaviour
 
     IEnumerator TurnOffWall()
     {
-        yield return new WaitForSeconds(2.0f);
         on_wall = false;
 
+        yield return new WaitForSeconds(2.0f);
+
+    }
+
+    IEnumerator DisableGravityForRing()
+    {
+        GetComponent<Rigidbody>().useGravity = false;
+        print("hety");
+        yield return new WaitForSeconds(3.0f);
+        GetComponent<Rigidbody>().useGravity = true;
     }
 
     void OnTriggerEnter(Collider col)
     {
+
+        if (col.gameObject.tag == "Wall")
+        {
+            wall_obj = col.gameObject;
+            jump_counter = 0;
+            if(col.gameObject.name == "Trigger")
+            {
+                
+            }
+        }
+
 
         if (col.gameObject.tag == "Rail")
         {
@@ -775,7 +894,7 @@ public class PlayerGamepad : MonoBehaviour
                 }
                 if(col.gameObject.name == col.gameObject.transform.parent.GetChild(2).name)
                 {
-                    print(diff_rotation);
+                    //print(diff_rotation);
                     if(diff_rotation.y > 90 && diff_rotation.y < 270)
                     {
 
@@ -850,10 +969,12 @@ public class PlayerGamepad : MonoBehaviour
                 transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.Euler(transform.rotation.eulerAngles.x, col.transform.eulerAngles.z, transform.rotation.eulerAngles.z), 1.0f);
                 ring_direction = col.transform.up;
                 player_movement_direction = ring_direction;
-                StartCoroutine(MoveFor(3.0f));
+                StartCoroutine(MoveFor(4.0f));
+                player_rigidbody.AddForce(ring_direction * 10000000/3.0f * Time.deltaTime, ForceMode.Impulse);
+                StartCoroutine(DisableGravityForRing());
             }
 
-           
+
 
         }
 
@@ -861,6 +982,7 @@ public class PlayerGamepad : MonoBehaviour
         {
             GetComponent<Rigidbody>().AddForce(col.gameObject.transform.forward * 500000 * booster_force * Time.deltaTime, ForceMode.Impulse);
             jump_counter++;
+            dash_counter++;
         }
 
     }

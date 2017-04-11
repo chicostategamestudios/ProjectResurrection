@@ -1,0 +1,21 @@
+fileFormatVersion: 2
+guid: 6f32942e4b388104f8f195053ce04974
+timeCreated: 1491515982
+licenseType: Free
+TrueTypeFontImporter:
+  serializedVersion: 4
+  fontSize: 16
+  forceTextureCase: -2
+  characterSpacing: 0
+  characterPadding: 1
+  includeFontData: 1
+  fontName: Sonic Advanced 2
+  fontNames:
+  - Sonic Advanced 2
+  fallbackFontReferences: []
+  customCharacters: 
+  fontRenderingMode: 0
+  ascentCalculationMode: 1
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

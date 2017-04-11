@@ -1,0 +1,21 @@
+fileFormatVersion: 2
+guid: 341b953ba626c9b44ab4b38b3b62032b
+timeCreated: 1491515982
+licenseType: Free
+TrueTypeFontImporter:
+  serializedVersion: 4
+  fontSize: 16
+  forceTextureCase: -2
+  characterSpacing: 0
+  characterPadding: 1
+  includeFontData: 1
+  fontName: Tyler's Pokemon
+  fontNames:
+  - Tyler's Pokemon
+  fallbackFontReferences: []
+  customCharacters: 
+  fontRenderingMode: 0
+  ascentCalculationMode: 1
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

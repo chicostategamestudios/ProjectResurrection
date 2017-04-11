@@ -11,7 +11,7 @@ public class LookAtPlayer : MonoBehaviour {
 	
 	// Update is called once per frame
 	void Update () {
-        transform.LookAt(2 * transform.position- GameObject.Find("Camera Anchor").transform.position);
+        transform.LookAt(2 * transform.position- GameObject.Find("Main Camera").transform.position);
         transform.rotation = Quaternion.Euler(0, transform.rotation.eulerAngles.y, transform.rotation.eulerAngles.z);
 	}
 }

@@ -1,0 +1,21 @@
+fileFormatVersion: 2
+guid: b7ea8f2d14b158d4a8b258e2d6c8ebfe
+timeCreated: 1491515868
+licenseType: Free
+TrueTypeFontImporter:
+  serializedVersion: 4
+  fontSize: 16
+  forceTextureCase: -2
+  characterSpacing: 0
+  characterPadding: 1
+  includeFontData: 1
+  fontName: Retro Party
+  fontNames:
+  - Retro Party
+  fallbackFontReferences: []
+  customCharacters: 
+  fontRenderingMode: 0
+  ascentCalculationMode: 1
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 
