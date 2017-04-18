@@ -1,4 +1,4 @@
-﻿//Original Author: Alexander Stamatis || Last Edited: Alexander Stamatis | Modified on April 4, 2017
+﻿//Original Author: Alexander Stamatis || Last Edited: Alexander Stamatis | Modified on April 18, 2017
 //This script deals with player movement, camera, and some player collision and trigger interactions in the runtime world
 
 using System.Collections;
@@ -33,7 +33,7 @@ public class PlayerGamepad : MonoBehaviour
     [Tooltip("Value between .01 and 4 for rail speed.")]
     public float rail_boost_speed;
     private bool on_rail, exiting_rail;
-    GameObject rail_first_pos, rail_second_pos;
+    GameObject rail_first_pos, rail_second_pos, main_long_rail_pos;
     private bool rail_going_forward;
 
     //JUMP
@@ -63,7 +63,7 @@ public class PlayerGamepad : MonoBehaviour
         set { gamepad_allowed = value; }
     }
     private bool AllowGamepadPlayerMovement, AllowGamepadCameraMovement;
-    
+
     private float last_angle, real_angle;
     private float delta_before, delta_now;
     private float delta, difference_in_degrees;
@@ -272,10 +272,12 @@ public class PlayerGamepad : MonoBehaviour
         //make the rigidbody of the player y set to zero, in order for the velocity.y to not affect player height transformation
         if (in_ring)
         {
+           
             player_rigidbody.useGravity = false;
             dash_trail_renderer.enabled = true;
             player_rigidbody.velocity = new Vector3(player_rigidbody.velocity.x, 0, player_rigidbody.velocity.z);
-        }else
+        }
+        else
         {
         }
 
@@ -355,8 +357,6 @@ public class PlayerGamepad : MonoBehaviour
             {
                 on_air = true;
             }
-
-            print(dash_counter);
 
             //slow down rotation of player while on air
             if (falling)
@@ -480,7 +480,7 @@ public class PlayerGamepad : MonoBehaviour
                 }
 
             }
-            
+
             GameObject.Find("top_right_text_1").GetComponent<Text>().text = "SPEED: " + (int)current_speed + " MPH";
             Color temp_color = new Color(0.05f * current_speed, .4f * current_speed, 1 * -current_speed, 1);
             GameObject.Find("top_right_text_1").GetComponent<Text>().color = temp_color;
@@ -582,13 +582,22 @@ public class PlayerGamepad : MonoBehaviour
             //	RAIL                           
             /////////////////////////////////////////////////////////////////////////////
 
+            //WHAT A MESS, trying to make it so that the playe doesnt drift horizontally away from the rail
             if (on_rail)
             {
 
                 disable_left_joystick = true;
-                transform.position = Vector3.MoveTowards(transform.position, rail_second_pos.transform.position, rail_boost_speed);
-                transform.position = new Vector3(transform.position.x, rail_first_pos.transform.position.y, transform.position.z);
+                //transform.position = new Vector3(transform.position.x, rail_first_pos.transform.position.y, transform.position.z);
                 float distance_from_end_rail = Vector3.Distance(transform.position, rail_second_pos.transform.position);
+                //this will keep the player x-axis aligned with the rail
+                player_rigidbody.velocity = Vector3.zero;
+                Vector3 temp_rail_vec = new Vector3(transform.position.x, main_long_rail_pos.transform.position.y + 2.0f, transform.position.z);
+                //transform.TransformDirection(temp_rail_vec);
+                transform.position = temp_rail_vec;
+               // transform.position += main_long_rail_pos.transform.forward * 100f * Time.deltaTime;
+                transform.position = Vector3.MoveTowards(transform.position, rail_second_pos.transform.position, rail_boost_speed);
+                transform.rotation = main_long_rail_pos.transform.rotation;
+
                 if (distance_from_end_rail < 5.0f)
                 {
                     on_rail = false;
@@ -799,7 +808,7 @@ public class PlayerGamepad : MonoBehaviour
             jump_counter = 0;
         }
 
-        
+
         if (col.gameObject.tag == "Rail")
         {
             //Find the difference between the player rotation and rail rotation
@@ -810,6 +819,10 @@ public class PlayerGamepad : MonoBehaviour
             //Stuff that happens when touching objects with Rail tag
             if (!exiting_rail && !on_rail)
             {
+                main_long_rail_pos = col.gameObject.transform.parent.GetChild(3).transform.gameObject;
+                Vector3 main_long_rail = col.gameObject.transform.parent.GetChild(3).transform.position;
+                //transform.position = main_long_rail.
+
                 //the statement below, makes sure that if it touches the first enter cube that it goes the correct way
                 //by setting the first touched object to rail_first pos
                 //then for the second pos the other child in the list
@@ -871,7 +884,7 @@ public class PlayerGamepad : MonoBehaviour
             string last_character = col_name.Substring(col_name.Length - 1);
             ring_manager_script.counter = Convert.ToInt32(last_character);
 
-            if(ring_manager_script.counter == 0)
+            if (ring_manager_script.counter == 0)
             {
                 AllowGamepadPlayerMovement = false;
 

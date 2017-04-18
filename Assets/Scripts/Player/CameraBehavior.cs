@@ -1,6 +1,6 @@
-﻿//Original Author: Alexander Stamatis || Last Edited: Tony Alessio | Modified on March 30, 2017
-//Camera behavior, position camera anchor to players position and clamping camera rotation
-//
+﻿// Original Author: Alexander Stamatis || Last Edited: Tony Alessio | Modified on April 18, 2017
+// Camera behavior, position camera anchor to players position and clamping camera rotation
+// This script also contains the lock-on behavior for combat lock-on / lock-off
 //
 //
 //
@@ -14,61 +14,82 @@ using UnityEngine;
 
 public class CameraBehavior : MonoBehaviour
 {
+    /* These variables are used for lock-on */
+    private bool Found_An_Enemy = false;                    //This is a bool that tracks if "Lock-On" found an enemy or not
     private float Distance_To_Enemy = 0;                    //This is the distance between the player and the locked-on enemy
     private float maximum_lockon_distance = 30;             //This is the maximum distance the player can be from the enemy and remain locked on
+    private float maximum_lockon_radius = 15;               //This is the radius of the circle cast out of the circleCast to detect enemies
+                                                            //	private RaycastHit hit;
 
-    private bool Found_An_Enemy = false;                    //This is a bool that tracks if "Lock-On" found an enemy or not
+    //This is an array of enemies (GameObjects) that the player can lock-on to
+    private GameObject[] targetable_enemies_arr;
 
     private GameObject player;                              //Holds a game object for referencing the "player"
     private GameObject targeted_enemy;                      //Holds a game object for referencing the "enemy"
 
-    private bool Combat_Camera_Toggle = true;               //Boolean toggle for if the "camera" is in default mode, or combat mode
+    private bool Locked_On_To_Enemy = true;                 //Boolean toggle for if the "camera" is in default mode, or combat mode
                                                             /* This starts as true, but in Awake() will be set to false (for testing reasons) */
 
     private float temp_axis;
-    private GameObject enemy;
 
-    // Use this for initialization
+
+
     void Awake()
     {
-        player = GameObject.Find("Player");             //Assigns the "player" GameObject to an object in the hierarchy named "Player"
-        targeted_enemy = GameObject.Find("Enemy");          //Assigns the "targeted_enemy" GameObject to an object in the hierarchy named "Enemy"
+        /* These are used for initialization*/
+        player = GameObject.Find("Player");                                 //Assigns the "player" GameObject to an object in the hierarchy named "Player"
+        targeted_enemy = GameObject.FindGameObjectWithTag("Enemy");			//Assigns the "targeted_enemy" GameObject to an object in the hierarchy tagged with "Enemy"
 
         //		Camera_Combat_Handler_Holder = GameObject.Find ("Camera_Combat_Handler");
-        Combat_Camera_Toggle = false;
+        Locked_On_To_Enemy = false;
         /* PROGRAMMER NOTE: This is primarily for testing purposes.
-		* The combat camera turns on by default, and then this line turns it off to make sure they both work
+		*  The combat camera turns on by default, and then this line turns it off to make sure both states work correctly.
 		*/
     }
 
+
+
     void Start()
     {
-        enemy = GameObject.Find("Enemy");       // <<< This is how you will pick which enemy to lock on to. FOR NOW, JUST A TEST
+        GatherAllEnemies();             //This function will gather all the enemies (GameObjects) present in the level in order to determine lock-on priority
+        DisplayTargetsInArray();		//This function will display all the enemies (elements) of the array ( targetable_enemies_arr[i] )
     }
 
-    // Update is called once per frame
-    void Update()
+
+
+    void FixedUpdate()
     {
-        transform.position = player.transform.position;     //This update's the current tranform.position of Camera Anchor to the player's position
-        Camera_Updater();           //This is a function call that will decide if lock-on is toggled on/off & combat is engaged/disengaged
-        Return_Distance();          //This is a function call that will check for distance between player and potential lock-on enemy
+        transform.position = player.transform.position;			//This update's the current tranform.position of Camera Anchor to the player's position
+        LockOn_Camera_Updater();								//This is a function call that will decide if lock-on is toggled on/off & combat is engaged/disengaged
+        Return_Distance();                                      //This is a function call that will check for distance between player and potential lock-on enemy
 
         /* Did the player click Right Stick down? (Try to Lock-On) */
-        if (Input.GetButtonDown("Controller_Right_Stick_Click"))        //The player clicked the Right Stick in, BEGIN Lock-On Checks
-        {
-            Debug.Log("Controller Right Stick Click: Pressed");
-            RaycastHit hit;
-            //			Physics.SphereCast(Vector3 ORIGIN, float RADIUS, Vector3 DIRECTION, out RaycastHit hitInfo, float MAXDISTANCE);		/*DEBUGGING: Might need a layerMask to ignore the ground*/
-            /* This next line is used to check for an available target in front of player character */
-            Found_An_Enemy = Physics.SphereCast(/*ORIGIN*/ transform.position, /*RADIUS*/ 5, /*DIRECTION*/ transform.forward, out hit, /*MAX DISTANCE*/ 30);
-            //			Debug.DrawRay (transform.position, transform.forward, Color.green);			//FOR DEBUGGING. CAN REMOVE LATER
-            //			Debug.Log("'Found_An_Enemy' is: " + Found_An_Enemy);						//FOR DEBUGGING. CAN REMOVE LATER
-
-            if (Found_An_Enemy)
+        if (Input.GetButtonDown("Controller_Right_Stick_Click"))
+        {       //The player clicked the Right Stick in, BEGIN Lock-On Checks
+                //Debug.Log("Controller Right Stick Click: Pressed");
+            if (Locked_On_To_Enemy == true) { Locked_On_To_Enemy = false; }     //THIS IS A TEST TO ALLOW LOCK-OFF
+            else if (Locked_On_To_Enemy == false)
+            //			if (Locked_On_To_Enemy == false)
             {
-                if (Combat_Camera_Toggle == true) { Combat_Camera_Toggle = false; }
-                else if (Combat_Camera_Toggle == false) { Combat_Camera_Toggle = true; }
-                else { Debug.LogError("Error in 'Combat_Camera_Toggle' logic. You should not see this message."); }
+                // Physics.SphereCast(Vector3 ORIGIN, float RADIUS, Vector3 DIRECTION, out RaycastHit hitInfo, float MAXDISTANCE);
+                /* This next line is used to check for an available target in front of player character */
+                //Found_An_Enemy = Physics.SphereCast (transform.position, maximum_lockon_radius, transform.forward, out hit, maximum_lockon_distance);
+
+                //DEBUG - Show: CalculateDistanceBetweenAllEnemies()
+                Found_An_Enemy = CalculateDistanceBetweenAllEnemies();
+                //END DEBUG
+
+
+                //				if (hit.collider.tag == "Enemy") {Debug.Log ("ENEMY HIT!");}				//FOR DEBUGGING. CAN REMOVE LATER
+                //				Debug.DrawRay (transform.position, transform.forward, Color.green);			//FOR DEBUGGING. CAN REMOVE LATER
+                //				Debug.Log ("'Found_An_Enemy' is: " + Found_An_Enemy);						//FOR DEBUGGING. CAN REMOVE LATER
+
+                if (Found_An_Enemy)
+                {
+                    if (Locked_On_To_Enemy == true) { Locked_On_To_Enemy = false; }
+                    else if (Locked_On_To_Enemy == false) { Locked_On_To_Enemy = true; }
+                    else { Debug.LogError("Error in 'Locked_On_To_Enemy' logic. You should not see this message."); }
+                }
             }
         }
 
@@ -89,27 +110,110 @@ public class CameraBehavior : MonoBehaviour
 
     }
 
+    //This function is used to find the distance between the player and the targetable enemy
     void Return_Distance()
     {
-        //		Debug.Log ("'Distance_To_Enemy' is: " + Distance_To_Enemy);										//Display the distance between the player and the enemy
-        if (Distance_To_Enemy > maximum_lockon_distance) { Combat_Camera_Toggle = false; }                  //Force player Lock-Off if player moves too far from enemy
-        float temp_dist = Vector3.Distance(player.transform.position, enemy.transform.position);        //Calculate distance between player and enemy
-        Distance_To_Enemy = temp_dist;                                                                  //Set the Distance_To_Enemy to the calculation solution
+        //		Debug.Log ("'Distance_To_Enemy' is: " + Distance_To_Enemy);								//Display the distance between the player and the enemy
+        if (Distance_To_Enemy > maximum_lockon_distance) { Locked_On_To_Enemy = false; }                //Force player Lock-Off if player moves too far from enemy
+        float temp_dist = Vector3.Distance(player.transform.position, targeted_enemy.transform.position);		//Calculate distance between player and enemy
+        Distance_To_Enemy = temp_dist;																	//Set the Distance_To_Enemy to the calculation solution
     }
 
-    void Camera_Updater()
+    //Based on a boolean flag, sets the camera to follow the lock-ed on enemy, or return to normal camera movement
+    void LockOn_Camera_Updater()
     {
         //If the player's camera is NOT in Combat Mode
-        if (Combat_Camera_Toggle == false)
-        {
-            /* This is when the camera is set back to normal mode */
-        }
+        if (Locked_On_To_Enemy == false) { /* This is when the camera is set back to normal mode */ }
         //If the player's camera IS in Combat Mode
-        else if (Combat_Camera_Toggle == true)
+        else if (Locked_On_To_Enemy == true)
         {
             /* This is when the camera is set to combat mode */
-            transform.position = player.transform.position;             //This update's the current tranform.position of Camera Anchor to the player's position
-            transform.LookAt(enemy.transform);                          //Forces the Camera Anchor, and camera, to face the enemy while "locked-on"
+            //transform.position = player.transform.position;             		//This update's the current tranform.position of Camera Anchor to the player's position
+            transform.LookAt(targeted_enemy.transform);							//Forces the Camera Anchor, and camera, to face the enemy while "locked-on"
+        }
+    }
+
+    //This function will gather all the enemies (GameObjects) present in the level in order to determine lock-on priority
+    void GatherAllEnemies()
+    {
+        targetable_enemies_arr = GameObject.FindGameObjectsWithTag("Enemy");
+    }
+
+    //This function will display all the enemies (elements) of the array (targetable_enemies_arr[i] )
+    void DisplayTargetsInArray()
+    {
+        for (int index = 0; index < targetable_enemies_arr.Length; index++)
+        {
+            Debug.Log("Targetable Enemy #" + index + " is: " + targetable_enemies_arr[index]);
+        }
+    }
+
+    //This function will calculate the distance between the player and all the enemies
+    bool CalculateDistanceBetweenAllEnemies()
+    {
+        float calculated_distance_to_enemy = 0.0f;                              //This variable will be used (& overwritten each time) to store the distance between the enemy and the player
+        float current_shortest_tracked_distance_to_enemy = 1000000000.0f;       //This variable will be used to keep track of the shortest distance to enemy (& overwritten only a new shortest distance is found)
+
+        //Debug for displaying the length of the array
+        Debug.Log("Length of array is: " + targetable_enemies_arr.Length);
+
+        for (int distance_index = 0; distance_index < targetable_enemies_arr.Length; distance_index++)
+        {
+            //calculate distance to enemy
+            calculated_distance_to_enemy = Vector3.Distance(player.transform.position, targetable_enemies_arr[distance_index].transform.position);
+
+            //DEBUG - Display this distance
+            Debug.Log("Distance to enemy #" + distance_index + "(Named: " + targetable_enemies_arr[distance_index] + ") is: " + calculated_distance_to_enemy);
+            //END DEBUG
+
+            //Compare current shortest to newly calculated: If not shorter, ignore & move on
+            if (calculated_distance_to_enemy > current_shortest_tracked_distance_to_enemy)
+            {
+                //DO NOTHING
+            }
+            //compare current shortest to newly calculated: if shorter, set to current shortest
+            else if (calculated_distance_to_enemy <= current_shortest_tracked_distance_to_enemy /*&& maximum_lockon_distance < calculated_distance_to_enemy*/)
+            {
+                //Set stored distance to calculated distance to update this new shortest distance
+                current_shortest_tracked_distance_to_enemy = calculated_distance_to_enemy;
+
+                //DEBUG - Display this distance
+                //THIS KEEPS GETTING CALLED BECAUSE IT IS INSIDE THE LOOP
+                Debug.Log("Current shortest distance to enemy is: " + current_shortest_tracked_distance_to_enemy);
+                //END DEBUG
+
+                targeted_enemy = targetable_enemies_arr[distance_index];
+
+                if (calculated_distance_to_enemy <= maximum_lockon_distance)
+                {
+                    LockOn_Camera_Updater();
+                }
+
+            }
+            else
+            {
+                //DO NOTHING
+                Debug.LogError("You should not see this error. Something went wrong in the logic of calculating the shortest distance to enemy.");
+            }
+        }
+
+
+        //Once the smallest calculated distance is found, decide what to do with it:
+        if (calculated_distance_to_enemy <= maximum_lockon_distance)
+        {
+            //If the calculated distance is less than (or equal to) the maximum lock-on distance, return true to lock-on
+            return true;
+        }
+        else if (calculated_distance_to_enemy > maximum_lockon_distance)
+        {
+            //If the calculated distance is more than the maximum lock-on distance, return false to prevent lock-on
+            return false;
+        }
+        else
+        {
+            //This is only for error checking. Both above statements should catch any case. If this gets triggered, then something went horribly wrong.
+            return false;
+            Debug.LogError("You should not see this error. Something went wrong in the logic of calculating the shortest distance to enemy.");
         }
     }
 }
