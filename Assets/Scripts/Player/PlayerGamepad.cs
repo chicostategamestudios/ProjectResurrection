@@ -104,12 +104,22 @@ public class PlayerGamepad : MonoBehaviour
 
     //GUI Notification
     private bool gui_speed_enable;
+    private Text gui_top_right_notifier;
 
     //BOOSTER
     public float booster_force;
 
     void Awake()
     {
+
+        if(gui_top_right_notifier == null)
+        {
+            if (GameObject.Find("top_right_text_1"))
+            {
+                gui_top_right_notifier = GameObject.Find("top_right_text_1").GetComponent<Text>();
+            }
+        }
+
         AllowGamepadCameraMovement = true;
         AllowGamepadPlayerMovement = true;
 
@@ -281,11 +291,7 @@ public class PlayerGamepad : MonoBehaviour
         {
         }
 
-        //if you press the back controller button, then transform the players position to a gameobject named "Spawn Point"
-        if (Input.GetButtonDown("Controller_Back"))
-        {
-            transform.position = GameObject.Find("Spawn Point").transform.position;
-        }
+        
 
         if (gamepad_allowed)
         {
@@ -305,10 +311,8 @@ public class PlayerGamepad : MonoBehaviour
             {
                 if (Time.timeScale == 1)
                 {
-
                     Time.timeScale = 0;
-                }
-                else
+                } else
                 {
                     Time.timeScale = 1;
                 }
@@ -481,9 +485,7 @@ public class PlayerGamepad : MonoBehaviour
 
             }
 
-            GameObject.Find("top_right_text_1").GetComponent<Text>().text = "SPEED: " + (int)current_speed + " MPH";
-            Color temp_color = new Color(0.05f * current_speed, .4f * current_speed, 1 * -current_speed, 1);
-            GameObject.Find("top_right_text_1").GetComponent<Text>().color = temp_color;
+        
 
             /////////////////////////////////////////////////////////////////////////////
             //	WALL                        
@@ -511,13 +513,7 @@ public class PlayerGamepad : MonoBehaviour
 
             if (on_wall && player_rigidbody.velocity.magnitude < 170f)
             {
-                //player_rigidbody.useGravity = false;
-                //if (wall_obj != null)
-                //{
-                //    wall_target_pos = new Vector3(transform.position.x, wall_obj.transform.position.y, transform.position.z);
-                //}
-                //transform.position = Vector3.Lerp(transform.position, wall_target_pos, 0.5f);
-                // player_rigidbody.AddForce(Vector3.up * 2000000f * 10 * Time.deltaTime);
+          
             }
 
             /////////////////////////////////////////////////////////////////////////////
@@ -591,7 +587,7 @@ public class PlayerGamepad : MonoBehaviour
                 float distance_from_end_rail = Vector3.Distance(transform.position, rail_second_pos.transform.position);
                 //this will keep the player x-axis aligned with the rail
                 player_rigidbody.velocity = Vector3.zero;
-                Vector3 temp_rail_vec = new Vector3(transform.position.x, main_long_rail_pos.transform.position.y + 2.0f, transform.position.z);
+                Vector3 temp_rail_vec = new Vector3(transform.position.x, main_long_rail_pos.transform.position.y, transform.position.z);
                 //transform.TransformDirection(temp_rail_vec);
                 transform.position = temp_rail_vec;
                // transform.position += main_long_rail_pos.transform.forward * 100f * Time.deltaTime;
@@ -662,28 +658,66 @@ public class PlayerGamepad : MonoBehaviour
                 }
             }
 
-            //CHECKPOINT
+            /////////////////////////////////////////////////////////////////////////////
+            //	CHECKPOINTS                        
+            /////////////////////////////////////////////////////////////////////////////
+
+            //D-PADS
             float d_pad_vertical = Input.GetAxis("DPadVertical");
             float d_pad_horizontal = Input.GetAxis("DPadHorizontal");
+       
+            //make camera rotation the same as player rotation
+            if(d_pad_horizontal != 0 || d_pad_vertical != 0)
+            {
+                camera_anchor.transform.rotation = transform.rotation;
+            }
+
             if (d_pad_horizontal == 1)
             {
                 transform.position = checkpoints[2].position;
+                transform.rotation = checkpoints[2].rotation;
+            } else if (d_pad_horizontal == -1)
+            {
+                transform.position = checkpoints[0].position;
+                transform.rotation = checkpoints[0].rotation;
             }
+
             if (d_pad_vertical == 1)
             {
                 transform.position = checkpoints[1].position;
+                transform.rotation = checkpoints[1].rotation;
             }
-            if (d_pad_vertical == -1)
+            else if (d_pad_vertical == -1)
             {
                 transform.position = checkpoints[3].position;
+                transform.rotation = checkpoints[3].rotation;
             }
-            if (d_pad_horizontal == -1)
+
+            //if you press the back controller button, then transform the players position to a gameobject named "Spawn Point"
+            if (Input.GetButtonDown("Controller_Back"))
             {
-                transform.position = checkpoints[0].position;
+                transform.position = GameObject.Find("Spawn Point").transform.position;
+                transform.rotation = GameObject.Find("Spawn Point").transform.rotation;
+                //make camera rotation the same as player rotation
+                camera_anchor.transform.rotation = transform.rotation;
             }
+
 
         }//gamepad
     }//fixedUpdate 
+
+    private void LateUpdate()
+    {
+        //GUI
+        if (gui_speed_enable)
+        {
+            //Notifies speed for testing
+            //Changes color of text
+            Color temp_color = new Color(0.05f * current_speed, .4f * current_speed, 1 * -current_speed, 1);
+            gui_top_right_notifier.color = temp_color;
+            gui_top_right_notifier.text = "SPEED: " + (int)current_speed + " MPH";
+        }
+    }
 
 
     //Used to capture last frames of the left joystick position, to compare it with the current one, this will calculate the delta (rate of change) of the left joystick
@@ -733,6 +767,22 @@ public class PlayerGamepad : MonoBehaviour
         in_ring = false;
         exiting_rail = false;
     }
+
+
+    IEnumerator TurnOffWall()
+    {
+        on_wall = false;
+        yield return new WaitForSeconds(2.0f);
+    }
+
+    //Disable gravity (velocity.y), since it affects ring movetowards/lerping
+    IEnumerator DisableGravityForRing()
+    {
+        GetComponent<Rigidbody>().useGravity = false;
+        yield return new WaitForSeconds(3.0f);
+        GetComponent<Rigidbody>().useGravity = true;
+    }
+
 
     void ToggleOnRail()
     {
@@ -784,20 +834,6 @@ public class PlayerGamepad : MonoBehaviour
         {
             StartCoroutine(TurnOffWall());
         }
-    }
-
-    IEnumerator TurnOffWall()
-    {
-        on_wall = false;
-        yield return new WaitForSeconds(2.0f);
-    }
-
-    //Disable gravity (velocity.y), since it affects ring movetowards/lerping
-    IEnumerator DisableGravityForRing()
-    {
-        GetComponent<Rigidbody>().useGravity = false;
-        yield return new WaitForSeconds(3.0f);
-        GetComponent<Rigidbody>().useGravity = true;
     }
 
     void OnTriggerEnter(Collider col)
@@ -904,14 +940,15 @@ public class PlayerGamepad : MonoBehaviour
             //this is executed when the player reaches the final ring, to push the player our a bit
             if (ring_manager_script.counter == ring_manager_script.child_count)
             {
+                //Enables player movement with left joystick
                 AllowGamepadPlayerMovement = true;
-
+                //Aligns the player's rotation with the ring
                 transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.Euler(transform.rotation.eulerAngles.x, col.transform.eulerAngles.z, transform.rotation.eulerAngles.z), 1.0f);
                 ring_direction = col.transform.up;
                 player_movement_direction = ring_direction;
                 StartCoroutine(MoveFor(4.0f));
-                player_rigidbody.AddForce(ring_direction * 10000000 / 3.0f * Time.deltaTime, ForceMode.Impulse);
                 StartCoroutine(DisableGravityForRing());
+                //player_rigidbody.AddForce(ring_direction * 10000000 / 3.0f * Time.deltaTime, ForceMode.Impulse);
             }
         }
 

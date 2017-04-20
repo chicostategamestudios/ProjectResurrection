@@ -1,4 +1,4 @@
-﻿//This script was written by James | Last edited by James | Modified on April 4, 2017
+﻿//This script was written by James | Last edited by James | Modified on April 20, 2017
 //The purpose of this script is to have an enemy chase the player. This is implemented by using a Nav Mesh Agent.
 //It will then decide what to do with its list of actions.
 
@@ -49,8 +49,9 @@ public class BasicAI : MonoBehaviour
     {
         attack_script.check_attack_left = true;
         yield return new WaitForSeconds(performing_time);
-        Debug.Log("done with attack 1");
+        //waits for performing time to be done... then add more things here if needed for after action
 		yield return new WaitForSeconds(cooldown_action);
+        //this is the time to wait for the next action to be performed.
 		performing_action = false;  //the ai is done with the action
     }
 
@@ -58,22 +59,24 @@ public class BasicAI : MonoBehaviour
     {
         attack_script.check_attack_right = true;
         yield return new WaitForSeconds(performing_time);
-		Debug.Log("done with attack 2");
-		yield return new WaitForSeconds(cooldown_action);
-		performing_action = false;  //the ai is done with the action
+        //waits for performing time to be done... then add more things here if needed for after action
+        yield return new WaitForSeconds(cooldown_action);
+        //this is the time to wait for the next action to be performed.
+        performing_action = false;  //the ai is done with the action
     }
     public IEnumerator Attack_3()
     {
         attack_script.check_attack_top = true;
         yield return new WaitForSeconds(performing_time);
-        Debug.Log("done with attack 3");
+        //waits for performing time to be done... then add more things here if needed for after action
         yield return new WaitForSeconds(cooldown_action);
+        //this is the time to wait for the next action to be performed.
         performing_action = false;  //the ai is done with the action
     }
 
     private void Awake()
     {
-        GameObject basic_ai = GameObject.Find("WeaponSpawn");
+        GameObject basic_ai = this.transform.FindChild("WeaponSpawn").gameObject;
         attack_script = basic_ai.GetComponent<BasicAI_Attack>();
         target = GameObject.Find("Player").transform;
     }

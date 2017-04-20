@@ -1,4 +1,4 @@
-﻿// Original Author: Alexander Stamatis || Last Edited: Tony Alessio | Modified on April 18, 2017
+﻿// Original Author: Alexander Stamatis || Last Edited: Tony Alessio | Modified on April 20, 2017
 // Camera behavior, position camera anchor to players position and clamping camera rotation
 // This script also contains the lock-on behavior for combat lock-on / lock-off
 //
@@ -65,6 +65,7 @@ public class CameraBehavior : MonoBehaviour
 
         /* Did the player click Right Stick down? (Try to Lock-On) */
         if (Input.GetButtonDown("Controller_Right_Stick_Click"))
+        //		if (Input.GetAxis("Controller_RT") > 0)
         {       //The player clicked the Right Stick in, BEGIN Lock-On Checks
                 //Debug.Log("Controller Right Stick Click: Pressed");
             if (Locked_On_To_Enemy == true) { Locked_On_To_Enemy = false; }     //THIS IS A TEST TO ALLOW LOCK-OFF
@@ -78,7 +79,6 @@ public class CameraBehavior : MonoBehaviour
                 //DEBUG - Show: CalculateDistanceBetweenAllEnemies()
                 Found_An_Enemy = CalculateDistanceBetweenAllEnemies();
                 //END DEBUG
-
 
                 //				if (hit.collider.tag == "Enemy") {Debug.Log ("ENEMY HIT!");}				//FOR DEBUGGING. CAN REMOVE LATER
                 //				Debug.DrawRay (transform.position, transform.forward, Color.green);			//FOR DEBUGGING. CAN REMOVE LATER

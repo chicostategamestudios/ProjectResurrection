@@ -1,4 +1,8 @@
-﻿using System.Collections;
+﻿//This script was written by James | Last edited by James | Modified on April 20, 2017
+//The purpose of this script is to create a hit box that swings either left or right.
+//The BasicAI script will call this script whenever the AI tries to attack.
+
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -26,16 +30,16 @@ public class BasicAI_Attack : MonoBehaviour {
     private GameObject left_arm_pos;
     private GameObject right_arm_pos;
     private GameObject top_arm_pos;
-    private GameObject swing_pos;
     
 
     // Use this for initialization
     void Start()
     {
-        left_arm_pos = GameObject.Find("Left Arm Position");
-        right_arm_pos = GameObject.Find("Right Arm Position");
-        top_arm_pos = GameObject.Find("Top Right Arm Position");
-        swing_pos = GameObject.Find("WeaponSpawn");
+        GameObject body_go = this.transform.parent.gameObject;
+        print("Name of parent: " + body_go);
+        left_arm_pos = body_go.transform.FindChild("Left Arm Position").gameObject;
+        right_arm_pos = body_go.transform.FindChild("Right Arm Position").gameObject;
+        top_arm_pos = body_go.transform.FindChild("Top Right Arm Position").gameObject;
 
     }
 
