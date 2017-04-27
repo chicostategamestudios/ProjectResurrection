@@ -27,6 +27,7 @@ public class BasicAI_Attack : MonoBehaviour {
 
     public GameObject weapon_left_prefab;
     public GameObject weapon_right_prefab;
+    public GameObject weapon_top_prefab;
     private GameObject left_arm_pos;
     private GameObject right_arm_pos;
     private GameObject top_arm_pos;
@@ -36,7 +37,6 @@ public class BasicAI_Attack : MonoBehaviour {
     void Start()
     {
         GameObject body_go = this.transform.parent.gameObject;
-        print("Name of parent: " + body_go);
         left_arm_pos = body_go.transform.FindChild("Left Arm Position").gameObject;
         right_arm_pos = body_go.transform.FindChild("Right Arm Position").gameObject;
         top_arm_pos = body_go.transform.FindChild("Top Right Arm Position").gameObject;
@@ -97,7 +97,7 @@ public class BasicAI_Attack : MonoBehaviour {
 
         if (check_attack_top)
         {
-            GameObject sword = Instantiate(weapon_right_prefab, top_spawn_pos, Quaternion.identity);
+            GameObject sword = Instantiate(weapon_top_prefab, top_spawn_pos, Quaternion.identity);
             sword.transform.parent = gameObject.transform;
             attacking_top = true;
             check_attack_top = false;
