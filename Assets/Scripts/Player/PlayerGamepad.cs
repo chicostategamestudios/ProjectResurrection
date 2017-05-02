@@ -1,4 +1,4 @@
-﻿//Original Author: Alexander Stamatis || Last Edited: Alexander Stamatis | Modified on April 18, 2017
+﻿//Original Author: Alexander Stamatis || Last Edited: Alexander Stamatis | Modified on May 2, 2017
 //This script deals with player movement, camera, and some player collision and trigger interactions in the runtime world
 
 using System.Collections;
@@ -20,7 +20,7 @@ public class PlayerGamepad : MonoBehaviour
     [Tooltip("How fast the player slows down. Value between 0 and 1.")]
     public float deacceleration;
     private float current_speed, speed_smooth_velocity, current_speed_multiplier;
-    private bool disable_left_joystick;
+    private bool disable_left_joystick, disable_right_joystick; //left stick is movement, right stick is camera
 
     //PLAYER
     private float player_direction;
@@ -96,11 +96,12 @@ public class PlayerGamepad : MonoBehaviour
     private float dash_timer;
     [Tooltip("The speed of the dash. Enter value between 10 - 150")]
     public float dash_speed;
-    public bool can_dash, dash;
+    public bool can_dash, dash, give_dash;
     private float last_captured_y_pos; //Used to cancel out y movement
     private Vector3 last_captured_player_direction;//to commit a player to a direction, can't change directions when dashing
     private TrailRenderer dash_trail_renderer;
     private int dash_counter;
+    
 
     //GUI Notification
     private bool gui_speed_enable;
@@ -299,8 +300,11 @@ public class PlayerGamepad : MonoBehaviour
             {
                 //JOYSTICK INPUTS
                 //Track Vector3 pos of left and right joystick.
-                input_joystick_right = new Vector3(Input.GetAxisRaw("RightJoystickY"), Input.GetAxisRaw("RightJoystickX"), 0);
                 input_joystick_left = new Vector3(Input.GetAxisRaw("LeftJoystickX"), 0, Input.GetAxisRaw("LeftJoystickY"));
+            }
+            if (!disable_right_joystick)
+            {
+                input_joystick_right = new Vector3(Input.GetAxisRaw("RightJoystickY"), Input.GetAxisRaw("RightJoystickX"), 0);
             }
 
             /////////////////////////////////////////////////////////////////////////////
@@ -330,7 +334,7 @@ public class PlayerGamepad : MonoBehaviour
             player_direction = Mathf.Atan2(input_direction.x, input_direction.z) * Mathf.Rad2Deg; //calculate the direction of the joystick, doing this by finding the theta angle, we are given the x value from the input_joystick_left.x and y value from the input_joystick_left.right
         }
 
-        if (jump_counter > 0)
+        if (jump_counter > 0 || on_air)
         {
             can_dash = true;
         }
@@ -346,6 +350,8 @@ public class PlayerGamepad : MonoBehaviour
         //used when the player is in the ring
         if (gamepad_allowed)
         {
+
+            
             //IF ON AIR
             if (Physics.Raycast(transform.position, -transform.up, out hit_down_2, 1.5f))
             {
@@ -356,10 +362,23 @@ public class PlayerGamepad : MonoBehaviour
                     can_dash = true;
                     dash_counter = 0;
                 }
+                give_dash = true;
             }
             else
             {
+                
                 on_air = true;
+            }
+
+            if (on_air)
+            {
+                if (give_dash)
+                {
+                    dash_counter = 0;
+                    can_dash = true;
+                    ResetDashValues();
+                    give_dash = false;
+                }
             }
 
             //slow down rotation of player while on air
@@ -412,7 +431,10 @@ public class PlayerGamepad : MonoBehaviour
                     }
 
                     //...taking that value and utilizing it here
-                    transform.position += player_movement_direction * current_speed * Time.deltaTime;
+                    if (!on_rail)
+                    {
+                        transform.position += player_movement_direction * current_speed * Time.deltaTime; //MOVING THE PLAYER
+                    }
                 }
 
                 if (input_joystick_left != Vector3.zero)
@@ -429,12 +451,15 @@ public class PlayerGamepad : MonoBehaviour
                             {
                                 player_movement_direction = transform.forward;
                             }
-                            if (exiting_rail || on_rail)
+                            if (exiting_rail)
                             {
                                 current_speed = 20f;
                             }
 
-                            transform.position += player_movement_direction * current_speed * Time.deltaTime;
+                            if (!on_rail)
+                            {
+                                transform.position += player_movement_direction * current_speed * Time.deltaTime;
+                            }
                         }
 
                         else
@@ -455,7 +480,10 @@ public class PlayerGamepad : MonoBehaviour
                         {
                             player_movement_direction = transform.forward;
                         }
-                        transform.position += player_movement_direction * current_speed * Time.deltaTime;
+                        if (!on_rail)
+                        {
+                            transform.position += player_movement_direction * current_speed * Time.deltaTime;
+                        }
                     }
 
                 }
@@ -533,9 +561,9 @@ public class PlayerGamepad : MonoBehaviour
                 }
             }
 
-            /////////////////////////////////////////////////////////////////////////////
+            //-----------------------------------------------------
             //	JUMP                         
-            /////////////////////////////////////////////////////////////////////////////
+            //-----------------------------------------------------
 
             //check if button A is pressed and if the jump counter is less than 0 (increments by 1 if statement below executes)
             if ((Input.GetButton("Controller_A")) && jump_counter < jump_limit && can_jump)
@@ -551,19 +579,17 @@ public class PlayerGamepad : MonoBehaviour
                     falling = true;
                     jump_counter++;
                     can_jump = false;
-                    ToggleOnRail();
                     if (on_wall)
                     {
-                        StartCoroutine(MoveFor(1.0F));
+                        StartCoroutine(MoveFor(1.5F));
                     }
                 }
 
+
                 if (on_rail)
                 {
-                    on_rail = false;
-                    exiting_rail = false;
+                    exiting_rail = true;
                     AllowGamepadPlayerMovement = true;
-                    StartCoroutine(MoveFor(1.0F));
                 }
                 StartCoroutine(GetOffWall());
                 on_wall = false;
@@ -574,31 +600,32 @@ public class PlayerGamepad : MonoBehaviour
                 can_jump = true;
             }
 
-            /////////////////////////////////////////////////////////////////////////////
+
+            //-------------------------------------------------
             //	RAIL                           
-            /////////////////////////////////////////////////////////////////////////////
+            //-------------------------------------------------
 
             //WHAT A MESS, trying to make it so that the playe doesnt drift horizontally away from the rail
             if (on_rail)
             {
+                player_rigidbody.isKinematic = true;
 
-                disable_left_joystick = true;
-                //transform.position = new Vector3(transform.position.x, rail_first_pos.transform.position.y, transform.position.z);
+                //calculate distance from players position to the targeted position or end position of rail
                 float distance_from_end_rail = Vector3.Distance(transform.position, rail_second_pos.transform.position);
-                //this will keep the player x-axis aligned with the rail
-                player_rigidbody.velocity = Vector3.zero;
-                Vector3 temp_rail_vec = new Vector3(transform.position.x, main_long_rail_pos.transform.position.y, transform.position.z);
-                //transform.TransformDirection(temp_rail_vec);
-                transform.position = temp_rail_vec;
-               // transform.position += main_long_rail_pos.transform.forward * 100f * Time.deltaTime;
-                transform.position = Vector3.MoveTowards(transform.position, rail_second_pos.transform.position, rail_boost_speed);
-                transform.rotation = main_long_rail_pos.transform.rotation;
+                //disable movement
+                disable_left_joystick = true;
+                //storing the last pos that player has to go in a vector3
+                Vector3 look_at_last_rail_target_pos = rail_second_pos.transform.position;
+                //setting y to players y axis, to avoid y tilting
+                look_at_last_rail_target_pos.y = transform.position.y;
+                //aligning player rotation to the pos the player has to go
+                transform.LookAt(look_at_last_rail_target_pos);
+                //moving the player
+                transform.position += transform.forward * 100f * Time.fixedDeltaTime;
 
                 if (distance_from_end_rail < 5.0f)
                 {
-                    on_rail = false;
                     exiting_rail = true;
-                    StartCoroutine(MoveFor(1.0f));
                     //if get off get boosted towards rail_first_forward instead of player's direction FIX!!!!!!!!!!!!!!!!!
                 }
             }
@@ -607,11 +634,19 @@ public class PlayerGamepad : MonoBehaviour
                 disable_left_joystick = false;
             }
 
+            if (exiting_rail)
+            {
+                player_rigidbody.isKinematic = false;
+                on_rail = false;
+                StartCoroutine(MoveFor(1.0f));
+            }
+
+
             //Activate dash
             if ((Input.GetButton("Controller_X")) && can_dash && dash_counter < 1)
             {
                 dash = true;
-
+                print("dash");
                 //capturing the last forward direction of the player, to commit the player to dash only to that directions
                 //by doing so, the player can't change direction while dashing
                 last_captured_y_pos = transform.position.y;
@@ -654,6 +689,8 @@ public class PlayerGamepad : MonoBehaviour
                 else
                 {
                     //reset the time to 0 and the can_dash to true, to reuse dash 
+                   // speed = deacceleration;
+                    StartCoroutine(MoveFor(3.0f));
                     ResetDashValues();
                 }
             }
@@ -750,10 +787,13 @@ public class PlayerGamepad : MonoBehaviour
     //This will move the player for a little bit forward after the player has exited the rings or rails
     IEnumerator MoveFor(float seconds)
     {
+        current_speed = 40f;
+        current_speed_multiplier = 20f;
         current_speed = Mathf.SmoothDamp(current_speed, current_speed_multiplier * 50, ref speed_smooth_velocity, 0.5f);
         gamepad_allowed = true;
         if (exiting_rail)
         {
+            current_speed_multiplier = 20f;
             if (rail_going_forward)
             {
                 player_movement_direction = rail_second_pos.transform.forward;
@@ -783,11 +823,6 @@ public class PlayerGamepad : MonoBehaviour
         GetComponent<Rigidbody>().useGravity = true;
     }
 
-
-    void ToggleOnRail()
-    {
-        on_rail = false;
-    }
 
     /////////////////////////////////////////////////////////////////////////////
     //	COLLIDERS               
@@ -847,6 +882,10 @@ public class PlayerGamepad : MonoBehaviour
 
         if (col.gameObject.tag == "Rail")
         {
+
+            jump_counter = 0;
+            can_jump = true;
+
             //Find the difference between the player rotation and rail rotation
             Vector3 diff_rotation = transform.rotation.eulerAngles - col.gameObject.transform.rotation.eulerAngles;
             //Using Abs or absolute to make the values positive
@@ -867,6 +906,9 @@ public class PlayerGamepad : MonoBehaviour
                     rail_first_pos = col.gameObject.transform.parent.GetChild(0).transform.gameObject;
                     rail_second_pos = col.gameObject.transform.parent.GetChild(1).transform.gameObject;
                     rail_going_forward = false;
+                    transform.position = Vector3.Lerp(transform.position, rail_first_pos.transform.position, 0.2f);
+                    //transform.position = rail_first_pos.transform.position;
+
                 }
                 //the statement below, makes sure that if it touches the first enter cube that it goes the correct way
                 //by setting the first touched object to rail_first pos
@@ -876,6 +918,10 @@ public class PlayerGamepad : MonoBehaviour
                     rail_first_pos = col.gameObject;
                     rail_second_pos = col.gameObject.transform.parent.GetChild(0).transform.gameObject;
                     rail_going_forward = true;
+
+                    transform.position = Vector3.Lerp(transform.position, rail_first_pos.transform.position, 0.2f);
+                    //transform.position = rail_first_pos.transform.position;
+
                 }
                 if (col.gameObject.name == col.gameObject.transform.parent.GetChild(2).name)
                 {
@@ -893,13 +939,14 @@ public class PlayerGamepad : MonoBehaviour
                         rail_going_forward = true;
                     }
                 }
+
+
             }
+
             on_rail = true;
             if (col.gameObject.name == rail_second_pos.name)
             {
-                on_rail = false;
                 exiting_rail = true;
-                StartCoroutine(MoveFor(1.0f));
             }
         }
 
