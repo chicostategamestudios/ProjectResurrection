@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using System;
 using UnityEngine.UI;
+using UnityEngine.SceneManagement; 
 
 public class PlayerGamepad : MonoBehaviour
 {
@@ -54,6 +55,7 @@ public class PlayerGamepad : MonoBehaviour
 
     //CHECKPOINT SYSTEM
     public Transform[] checkpoints;
+    private int last_checkpoint_used;
 
     //GAMEPAD
     private Vector3 input_joystick_left, input_joystick_right, input_direction, last_direction;
@@ -75,6 +77,9 @@ public class PlayerGamepad : MonoBehaviour
     private bool in_ring;
     //get script from col.gameObject
     RingManager ring_manager_script;
+    private bool exiting_ring;
+    private float exiting_ring_timer;
+    
 
     //WALL
     private bool on_wall;
@@ -568,30 +573,38 @@ public class PlayerGamepad : MonoBehaviour
             //check if button A is pressed and if the jump counter is less than 0 (increments by 1 if statement below executes)
             if ((Input.GetButton("Controller_A")) && jump_counter < jump_limit && can_jump)
             {
+
                 //raycast checks if there is something below the player
                 //make sure that the ray goes father below the ground, if its a 1, it will cause issues like z-fighting (3d modeling), 
                 //it won't know if its touching or touching the ground because its doing both if the object is a scale of 1 and the distance of the ray is 1
-                if (Physics.Raycast(transform.position, -transform.up, out hit_down, 1.5f) || on_wall)
+                if (Physics.Raycast(transform.position, -transform.up, out hit_down, 1.5f) || on_wall || exiting_rail)
                 {
-                    player_rigidbody.AddForce(Vector3.up * jump_force * Time.fixedDeltaTime, ForceMode.Impulse);
-                    jump_timer = 0f;
-                    jump = true;
-                    falling = true;
-                    jump_counter++;
-                    can_jump = false;
-                    if (on_wall)
+                    //limiting y axis jump
+                    if (player_rigidbody.velocity.y < 40f)
                     {
-                        StartCoroutine(MoveFor(1.5F));
+                        player_rigidbody.AddForce(Vector3.up * jump_force * Time.fixedDeltaTime, ForceMode.Impulse);
+                        jump_timer = 0f;
+                        jump = true;
+                        falling = true;
+                        jump_counter++;
+                        can_jump = false;
+                        if (on_wall)
+                        {
+                            StartCoroutine(MoveFor(1.5F));
+                        }
                     }
                 }
-
-
+         
                 if (on_rail)
                 {
+                    on_rail = false;
                     exiting_rail = true;
                     AllowGamepadPlayerMovement = true;
                 }
-                StartCoroutine(GetOffWall());
+
+                
+
+                //StartCoroutine(GetOffWall());
                 on_wall = false;
             }
 
@@ -623,6 +636,12 @@ public class PlayerGamepad : MonoBehaviour
                 //moving the player
                 transform.position += transform.forward * 100f * Time.fixedDeltaTime;
 
+                //elevate the player above the rail for more responsive jumps
+                Vector3 elevate_player = transform.position;
+                elevate_player.y = rail_first_pos.transform.position.y + 2.7f;
+                transform.position = elevate_player;
+                
+
                 if (distance_from_end_rail < 5.0f)
                 {
                     exiting_rail = true;
@@ -646,7 +665,6 @@ public class PlayerGamepad : MonoBehaviour
             if ((Input.GetButton("Controller_X")) && can_dash && dash_counter < 1)
             {
                 dash = true;
-                print("dash");
                 //capturing the last forward direction of the player, to commit the player to dash only to that directions
                 //by doing so, the player can't change direction while dashing
                 last_captured_y_pos = transform.position.y;
@@ -713,21 +731,27 @@ public class PlayerGamepad : MonoBehaviour
             {
                 transform.position = checkpoints[2].position;
                 transform.rotation = checkpoints[2].rotation;
+                last_checkpoint_used = 3;
             } else if (d_pad_horizontal == -1)
             {
                 transform.position = checkpoints[0].position;
                 transform.rotation = checkpoints[0].rotation;
+                last_checkpoint_used = 1;
             }
 
             if (d_pad_vertical == 1)
             {
                 transform.position = checkpoints[1].position;
                 transform.rotation = checkpoints[1].rotation;
+                last_checkpoint_used = 2;
+
             }
             else if (d_pad_vertical == -1)
             {
                 transform.position = checkpoints[3].position;
                 transform.rotation = checkpoints[3].rotation;
+                last_checkpoint_used = 4;
+
             }
 
             //if you press the back controller button, then transform the players position to a gameobject named "Spawn Point"
@@ -735,8 +759,30 @@ public class PlayerGamepad : MonoBehaviour
             {
                 transform.position = GameObject.Find("Spawn Point").transform.position;
                 transform.rotation = GameObject.Find("Spawn Point").transform.rotation;
+                last_checkpoint_used = 0;
                 //make camera rotation the same as player rotation
                 camera_anchor.transform.rotation = transform.rotation;
+            }
+
+            //RESTART SCENE - TEMPORARY!
+            if (Input.GetButtonDown("Controller_B"))
+            {
+                SceneManager.LoadScene(SceneManager.GetActiveScene().name);
+            }
+
+            if (exiting_ring)
+            {
+                exiting_ring_timer += Time.fixedDeltaTime;
+                if(exiting_ring_timer < 1f)
+                {
+                    transform.position += ring_direction * 50f * Time.fixedDeltaTime;
+                }
+                else
+                {
+                    current_speed = 40f;
+                    exiting_ring_timer = 0f;
+                    exiting_ring = false;
+                }
             }
 
 
@@ -852,7 +898,15 @@ public class PlayerGamepad : MonoBehaviour
         //if the player 
         if (col.gameObject.name == "Death Zone")
         {
-            transform.position = GameObject.Find("Spawn Zone").transform.position;
+            if (last_checkpoint_used != 0)
+            {
+                transform.position = checkpoints[last_checkpoint_used - 1].position;
+                transform.rotation = checkpoints[last_checkpoint_used - 1].rotation;
+            }
+            else
+            {
+                transform.position = GameObject.Find("Spawn Point").transform.position;
+            }
         }
         //        //used to smoothly increase and decrease the velocity of the player, its a value...
         //        current_speed = Mathf.SmoothDamp(current_speed, input_joystick_left.sqrMagnitude * current_speed_multiplier, ref speed_smooth_velocity, speed);
@@ -996,6 +1050,7 @@ public class PlayerGamepad : MonoBehaviour
                 StartCoroutine(MoveFor(4.0f));
                 StartCoroutine(DisableGravityForRing());
                 //player_rigidbody.AddForce(ring_direction * 10000000 / 3.0f * Time.deltaTime, ForceMode.Impulse);
+                exiting_ring = true;
             }
         }
 

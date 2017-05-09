@@ -98,7 +98,7 @@ public class CameraBehavior : MonoBehaviour
         /* If player moves right stick (more than halfway) to the right */
         if (Input.GetAxis("RightJoystickX") > 0.5f)
         {
-            Debug.LogError("Received right stick X-axis input: RIGHT");
+            //Debug.LogError("Received right stick X-axis input: RIGHT");
             // Call function that scans for target to the RIGHT
             ScanRight();
         }
@@ -106,7 +106,7 @@ public class CameraBehavior : MonoBehaviour
         /* If player moves right stick (more than halfway) to the left */
         if (Input.GetAxis("RightJoystickX") < -0.5f)
         {
-            Debug.LogError("Received right stick X-axis input: LEFT");
+            //Debug.LogError("Received right stick X-axis input: LEFT");
             // Call function that scans for target to the LEFT
         }
 
