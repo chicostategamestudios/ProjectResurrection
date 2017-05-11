@@ -3,25 +3,25 @@ using System.Collections.Generic;
 using UnityEngine;
 
 public class PlayerAttack : MonoBehaviour {
-
-
-    
-    // Use this for initialization
-    void Start () {
-		
-	}
 	
+    // Will be used to detect collisions for combos
 	// Update is called once per frame
 	void Update () {
-        Destroy(gameObject, 0.3f);
+        Destroy(gameObject, .3f);
 	}
 
     //Detect if hitting an Enemy
-    private void OnTriggerEnter(Collider col)
+    void OnTriggerEnter(Collider col)
     {
-        if (col.tag == "Enemy")
+        Debug.Log("Collision Detected");
+        if (col.tag == "Enemy") // detect if an enemy is hit
         {
             Debug.Log("Hit Enemy");
+        }
+
+        if (col.tag == "Player")
+        {
+            return;
         }
     }
 
